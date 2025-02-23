@@ -1,3 +1,9 @@
+# CS 121 - Assignment 3 (M1)
+# Group 23
+# , Kyle Jung, Catherine Fajardo
+
+import os
+
 # global token dict
 all_tokens = {}
 
@@ -35,3 +41,32 @@ def merge_dict(dict_a, dict_b)->dict:
         merged_dict[token].sort
     
     return merged_dict
+
+def retrievePaths():
+    """retrieves list of all file paths within directory of developer/dev"""
+
+    # get paths for current directory and dev folder
+    currentDir = os.path.dirname(os.path.abspath(__file__))
+    pathDev = os.path.join(currentDir, "developer", "DEV")
+    
+    # error check wrong dir
+    if not os.path.exists(pathDev):
+        print(f"error: dir '{pathDev}' does not exist.")
+        return list()
+
+    # iterate through subfolders
+    webpages = list()
+    for base, _, docs in os.walk(pathDev):
+        for page in docs:
+            if page.endswith(".json"):
+                webpages.append(os.path.join(base, page))
+    
+    return webpages
+
+if __name__ == "__main__":
+    # parsing developer directory with os module
+    json_paths = retrievePaths()
+
+    # test req #2
+    print(json_paths)
+
