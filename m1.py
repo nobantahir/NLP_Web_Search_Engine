@@ -1,6 +1,6 @@
 # CS 121 - Assignment 3 (M1)
 # Group 23
-# , Kyle Jung, Catherine Fajardo
+# Catherine Fajardo, Yaqub Hasan, Kyle Jung, Noban Tahir
 
 import os
 
@@ -9,14 +9,16 @@ all_tokens = {}
 
 # global doc_count, token count
 # assumes we are partial indexing
+# we don't need global since we are not modifying. we need to declare global in the func
+# and return just the variable if we choose to modify it
 doc_count = 0
 token_count = 0
 
 def total_docs():
-    return global doc_count
+    return doc_count
 
 def total_tokens():
-    return global token_count
+    return token_count
 
 def insert_posting(token_dict, token, doc_id, token_freq) -> dict:
     """Insert a posting tuple (doc_id, token freq) into a token dictionary."""
