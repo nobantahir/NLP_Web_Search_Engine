@@ -26,7 +26,7 @@ def insert_posting(token_dict, token, doc_id, token_freq) -> dict:
     if not(token in token_dict):
         token_dict[token] = []
     token_dict[token].append((doc_id, token_freq))
-    token_dict[token].sort()
+    token_dict[token].sort(key=lambda x: x[1], reverse=True)
     
     return token_dict
 
