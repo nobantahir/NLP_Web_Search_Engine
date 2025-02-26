@@ -11,6 +11,9 @@ import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
+import time
+from datetime import datetime
+import functools
 
 # Download necessary NLTK data
 nltk.download('punkt')
@@ -36,6 +39,45 @@ all_tokens = {}
 doc_count = 0
 token_count = 0
 
+def format_dt():
+    dt = datetime.now()
+    return dt.strftime("%#I:%M:%S %p %Y-%m-%d") if os.name == 'nt' else dt.strftime("%-I:%M:%S %p %Y-%m-%d")
+
+def timer(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        start_dt = format_dt()
+        print(f"Starting {func.__name__} at: {start_dt}")
+        
+        result = func(*args, **kwargs)
+        
+        end_time = time.time()
+        end_dt = format_dt()
+        print(f"Ending {func.__name__} at: {end_dt}")
+        
+        execution_time = end_time - start_time
+        print(f"Total execution time for {func.__name__}: {execution_time:.4f} seconds")
+        
+        return result
+    return wrapper
+
+def print_returns(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        print(f"{func.__name__} returned: {result}")
+        return result
+    return wrapper
+
+def count_calls(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        wrapper.count += 1
+        print(f"{func.__name__} calls: {wrapper.count}")
+        return func(*args, **kwargs)
+    wrapper.count = 0
+    return wrapper
+
 def total_docs():
     return doc_count
 
@@ -49,6 +91,7 @@ def insert_posting(token_dict, token, doc_id, token_freq) -> dict:
     token_dict[token].append((doc_id, token_freq))
     return token_dict
 
+@count_calls
 def merge_dict(dict_a, dict_b)->dict:
     """Merge two token dicts."""
     # We copy dict_a so we don't change the original, then add in dict_b's postings without sorting.
@@ -59,6 +102,7 @@ def merge_dict(dict_a, dict_b)->dict:
         merged_dict[token] += postlist
     return merged_dict
 
+@count_calls
 def retrievePaths():
     """retrieves list of all file paths within directory of developer/dev"""
 
@@ -114,6 +158,7 @@ def get_pickle_size(filename):
         print(f"Pickle file {filename} does not exist.")
         return 0
 
+@count_calls
 def parse_html(content):
     """
     Use BeautifulSoup with the lxml parser to extract plain text from HTML content.
@@ -121,7 +166,8 @@ def parse_html(content):
     soup = BeautifulSoup(content, 'lxml')
     return soup.get_text(separator=" ")
 
-def tokenize(text, remove_stopwords=False, use_stemming=True):
+@count_calls
+def tokenize(text, remove_stopwords=False, use_stemming=False):
     """
     Tokenize text using nltk's word_tokenize.
     
@@ -139,6 +185,7 @@ def tokenize(text, remove_stopwords=False, use_stemming=True):
     
     return tokens
 
+@timer
 def build_index():
     """
     Build the inverted index from all JSON files in the specified folder.
@@ -161,7 +208,7 @@ def build_index():
         html_content = data.get('content', "")
         plain_text = parse_html(html_content)
         # Tokenize with stemming enabled (stop words are kept)
-        tokens = tokenize(plain_text, remove_stopwords=False, use_stemming=True)
+        tokens = tokenize(plain_text, remove_stopwords=False, use_stemming=False)
         
         # Create a frequency dictionary for tokens in this document
         freq_dict = {}
