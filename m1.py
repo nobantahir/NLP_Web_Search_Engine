@@ -97,7 +97,6 @@ def insert_posting(token_dict, token, doc_id, token_freq) -> dict:
     token_dict[token].append((doc_id, token_freq))
     return token_dict
 
-@count_calls
 def merge_dict(dict_a, dict_b)->dict:
     """Merge two token dicts."""
     # We copy dict_a so we don't change the original, then add in dict_b's postings without sorting.
@@ -108,7 +107,6 @@ def merge_dict(dict_a, dict_b)->dict:
         merged_dict[token] += postlist
     return merged_dict
 
-@count_calls
 def retrievePaths():
     """retrieves list of all file paths within directory of developer/dev"""
 
@@ -173,7 +171,7 @@ def parse_html(content):
     return soup.get_text(separator=" ")
 
 @count_calls
-def tokenize(text, remove_stopwords=False, use_stemming=False):
+def tokenize(text, remove_stopwords=False, use_stemming=True):
     """
     Tokenize text using nltk's word_tokenize.
     
@@ -183,10 +181,13 @@ def tokenize(text, remove_stopwords=False, use_stemming=False):
     """
     tokens = word_tokenize(text.lower())
     
-    if remove_stopwords:
+    if remove_stopwords and use_stemming:
+        tokens = [ps.stem(token) for token in tokens if token not in stop_words]
+        
+    elif remove_stopwords:
         tokens = [token for token in tokens if token not in stop_words]
     
-    if use_stemming:
+    elif use_stemming:
         tokens = [ps.stem(token) for token in tokens]
     
     return tokens
@@ -214,7 +215,7 @@ def build_index():
         html_content = data.get('content', "")
         plain_text = parse_html(html_content)
         # Tokenize with stemming enabled (stop words are kept)
-        tokens = tokenize(plain_text, remove_stopwords=False, use_stemming=False)
+        tokens = tokenize(plain_text, remove_stopwords=False, use_stemming=True)
         
         # Create a frequency dictionary for tokens in this document
         freq_dict = {}
