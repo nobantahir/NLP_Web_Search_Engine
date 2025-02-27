@@ -12,7 +12,7 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import functools
 
 # Download necessary NLTK data
@@ -43,6 +43,11 @@ def format_dt():
     dt = datetime.now()
     return dt.strftime("%#I:%M:%S %p %Y-%m-%d") if os.name == 'nt' else dt.strftime("%-I:%M:%S %p %Y-%m-%d")
 
+def format_exec_time(seconds):
+    td = timedelta(seconds=seconds)
+    minutes, seconds = divmod(td.seconds, 60)
+    return f"{minutes:02d}:{seconds:05.2f}"
+
 def timer(func):
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -56,7 +61,8 @@ def timer(func):
         print(f"Ending {func.__name__} at: {end_dt}")
         
         execution_time = end_time - start_time
-        print(f"Total execution time for {func.__name__}: {execution_time:.4f} seconds")
+        formatted_time = format_exec_time(execution_time)
+        print(f"Total execution time for {func.__name__}: {formatted_time}")
         
         return result
     return wrapper
