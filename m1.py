@@ -131,11 +131,17 @@ def tokenize(text, remove_stopwords=False, use_stemming=True):
     """
     tokens = word_tokenize(text.lower())
     
-    if remove_stopwords:
+    if remove_stopwords and use_stemming:
+        tokens = [ps.stem(token) for token in tokens if token not in stop_words]
+        
+    elif remove_stopwords:
         tokens = [token for token in tokens if token not in stop_words]
     
-    if use_stemming:
+    elif use_stemming:
         tokens = [ps.stem(token) for token in tokens]
+
+    
+
     
     return tokens
 
