@@ -114,6 +114,12 @@ def get_pickle_size(filename):
         print(f"Pickle file {filename} does not exist.")
         return 0
 
+def save_partial_index(index, partial_num):
+    """Save a partial index to a pickle file named with its partial number without printing."""
+    filename = f"partial_index_{partial_num}.pkl"
+    with open(filename, 'wb') as f:
+        pickle.dump(index, f)
+
 def parse_html(content):
     """
     Use BeautifulSoup with the lxml parser to extract plain text from HTML content.
@@ -140,9 +146,6 @@ def tokenize(text, remove_stopwords=False, use_stemming=True):
     elif use_stemming:
         tokens = [ps.stem(token) for token in tokens]
 
-    
-
-    
     return tokens
 
 def build_index():
@@ -151,6 +154,7 @@ def build_index():
     """
     global doc_count, token_count
     index = {}
+    partial_count = 0
     paths = retrievePaths()
     
     for doc_path in paths:
@@ -178,28 +182,47 @@ def build_index():
         for token, freq in freq_dict.items():
             insert_posting(index, token, doc_id, freq)
             token_count += 1
+        
+        # Check if the index has reached or exceeded 8,192 postings
+        total_postings = sum(len(postings) for postings in index.values())
+        if total_postings >= 8192:
+            save_partial_index(index, partial_count)
+            index = {}  # Clear the index for the next partial
+            partial_count += 1
     
-    return index
-
-
+    # Save any remaining postings as a final partial index
+    if index:
+        save_partial_index(index, partial_count)
+        partial_count += 1
+    
+    # For now we don't merge partial indexes since that will be implemented later by someone else.
+    return partial_count  # Return the number of partial indexes saved
+    
 def main():
-    # Build the inverted index from your dataset
-    inverted_index = build_index()
+    
+    # Build the inverted index and get the count of partial indexes saved.
+    partial_count = build_index()
+    
+    
+    # # Build the inverted index from your dataset
+    # inverted_index = build_index()
     
     # Print basic statistics about the index
     print("Total documents processed:", total_docs())
     print("Total token postings inserted:", total_tokens())
-    print("Unique tokens in index:", len(inverted_index))
+    # print("Unique tokens in index:", len(inverted_index))
+    print(f"{partial_count} partial index files have been saved.")
+
     
-    # ----- Pickle Part -----
-    # Save the index to a pickle file for persistence
-    pickle_filename = "inverted_index.pkl"
-    save_pickle(inverted_index, pickle_filename)
+    # # ----- Pickle Part -----
+    # # Save the index to a pickle file for persistence
+    # pickle_filename = "inverted_index.pkl"
+    # save_pickle(inverted_index, pickle_filename)
     
-    # Load the index back from the pickle file to verify it saved correctly
-    loaded_index = load_pickle(pickle_filename)
-    size_kb = get_pickle_size(pickle_filename)
-    print(f"Pickle file size: {size_kb:.2f} KB")
+    # # Load the index back from the pickle file to verify it saved correctly
+    # loaded_index = load_pickle(pickle_filename)
+    # size_kb = get_pickle_size(pickle_filename)
+    # print(f"Pickle file size: {size_kb:.2f} KB")
 
 if __name__ == "__main__":
     main()
