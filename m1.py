@@ -95,6 +95,33 @@ def retrievePaths():
             for base, _, docs in os.walk(pathDev)
             for page in docs if page.endswith(".json")]
 
+def mergePartialIndexes():
+    """merges all partial index files into one final index and records it"""
+
+    partialIndexes = list()
+    final = dict()
+    
+    # get partial index files
+    for file in os.listdir():
+        if file.startswith("partial_index_") and file.endswith(".pkl"):
+            partialIndexes.append(file)
+
+    # Sort the partial indexes by number to merge in order
+    partialIndexes.sort(key=lambda x: int(x.split("_")[-1].split(".")[0]))
+
+    # load/merge every partial index
+    for i, v in enumerate(partialIndexes):
+        partialData = load_pickle(v)
+        final = merge_dict(final, partialData)
+
+        # remove partial file after merge
+        os.remove(v)
+
+    # save merged final index
+    save_pickle(final, "final_index.pkl")
+    print(f"Final index saved as 'final_index.pkl' with {len(final)} unique tokens")
+
+
 def save_pickle(data, filename):
     """
     Save the given data to a pickle file. This allows you to store and later reload your index.
@@ -231,10 +258,12 @@ def build_index():
 def main():
     
     # Build the inverted index and get the count of partial indexes saved.
-    partial_count = build_index()
+    # partial_count = build_index()
     
     
-    # # Build the inverted index from your dataset
+    # Merge partial indexes
+    # print("\nMerging all partial indexes...")
+    # mergePartialIndexes()
     # inverted_index = build_index()
     
     # Print basic statistics about the index
