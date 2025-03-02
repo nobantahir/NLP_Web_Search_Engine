@@ -49,11 +49,10 @@ def create_tagged_set(content, tag_types:list) -> set:
     html_content = BeautifulSoup(content, 'lxml')
     for tag in tag_types:
         # get all text pieces under a certain HTML tag
-        # tokenize each piece and transform token list into a set
-        # tagged_items = set(tokenize(" ".join(html_content.find_all(tag))))
-        tagged_lines = htm_content.find_all(tag)
+        tagged_lines = html_content.find_all(tag)
         tagged_tokens = set()
-        
+
+        # tokenize each line and combine sets
         for line in tagged_lines:
             temp_tokens = set(tokenize(line))
             tagged_tokens = tagged_tokens | temp_tokens
