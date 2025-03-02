@@ -49,17 +49,18 @@ def create_tagged_set(content, tag_types:list) -> set:
     html_content = BeautifulSoup(content, 'lxml')
     for tag in tag_types:
         # get all text pieces under a certain HTML tag
-        tagged_lines = html_content.find_all(tag)
+        tagged_lines = [text.get_text() for text in html_content.find_all(tag) if text]
         tagged_tokens = set()
 
         # tokenize each line and combine sets
         for line in tagged_lines:
-            temp_tokens = set(tokenize(line))
-            tagged_tokens = tagged_tokens | temp_tokens
+            if line:
+                temp_tokens = set(tokenize(line))
+                tagged_tokens = tagged_tokens | temp_tokens
 
         tagged_set = tagged_set | tagged_tokens
         # union of 2 sets
-
+        
     return tagged_set
 
 def insert_posting(token_dict, token, doc_id, token_freq, tagged) -> dict:
