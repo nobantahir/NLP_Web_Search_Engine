@@ -11,6 +11,10 @@ import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
+import sys
+
+SYS_MEMORY_USAGE = 0
+GLOBAL_DUMP = 1024000
 
 # Download necessary NLTK data
 nltk.download('punkt')
@@ -112,7 +116,7 @@ def get_pickle_size(filename):
         return size_bytes / 1024.0
     else:
         print(f"Pickle file {filename} does not exist.")
-        return 0
+        return 0 
 
 def save_partial_index(index, partial_num):
     """Save a partial index to a pickle file named with its partial number without printing."""
@@ -184,10 +188,13 @@ def build_index():
             token_count += 1
         
         # Check if the index has reached or exceeded 8,192 postings
-        total_postings = sum(len(postings) for postings in index.values())
-        if total_postings >= 8192:
+        global GLOBAL_DUMP
+
+        if len(index.items()) > 100000:
             save_partial_index(index, partial_count)
-            index = {}  # Clear the index for the next partial
+            global SYS_MEMORY_USAGE
+            SYS_MEMORY_USAGE += sys.getsizeof(index)
+            index.clear()  # Clear the index for the next partial
             partial_count += 1
     
     # Save any remaining postings as a final partial index
@@ -212,7 +219,7 @@ def main():
     print("Total token postings inserted:", total_tokens())
     # print("Unique tokens in index:", len(inverted_index))
     print(f"{partial_count} partial index files have been saved.")
-
+    print(f"Total memory usage {SYS_MEMORY_USAGE/1024} KBs.")
     
     # # ----- Pickle Part -----
     # # Save the index to a pickle file for persistence
