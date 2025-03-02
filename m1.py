@@ -258,7 +258,7 @@ def build_index():
 def main():
     
     # Build the inverted index and get the count of partial indexes saved.
-    # partial_count = build_index()
+    partial_count = build_index()
     
     
     # Merge partial indexes
