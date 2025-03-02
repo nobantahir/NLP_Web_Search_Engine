@@ -46,11 +46,32 @@ def total_docs():
 def total_tokens():
     return token_count
 
-def insert_posting(token_dict, token, doc_id, token_freq) -> dict:
-    """Insert a posting tuple (doc_id, token freq) into a token dictionary."""
+def create_tagged_set(content, tag_types:list) -> set:
+    """Given HTML content and a list of HTML tag types, return a set
+        of the words under those tags."""
+    tagged_set = set()
+    html_content = BeautifulSoup(content, 'lxml')
+    for tag in tag_types:
+        # get all text pieces under a certain HTML tag
+        tagged_lines = [text.get_text() for text in html_content.find_all(tag) if text]
+        tagged_tokens = set()
+
+        # tokenize each line and combine sets
+        for line in tagged_lines:
+            if line:
+                temp_tokens = set(tokenize(line))
+                tagged_tokens = tagged_tokens | temp_tokens
+
+        tagged_set = tagged_set | tagged_tokens
+        # union of 2 sets
+        
+    return tagged_set
+
+def insert_posting(token_dict, token, doc_id, token_freq, tagged) -> dict:
+    """Insert a posting tuple (doc_id, token freq, tagged) into a token dictionary."""
     if token not in token_dict:
         token_dict[token] = []
-    token_dict[token].append((doc_id, token_freq))
+    token_dict[token].append((doc_id, token_freq, tagged))
     return token_dict
 
 def merge_dict(dict_a, dict_b)->dict:
@@ -78,6 +99,33 @@ def retrievePaths():
     return [os.path.join(base, page)
             for base, _, docs in os.walk(pathDev)
             for page in docs if page.endswith(".json")]
+
+def mergePartialIndexes():
+    """merges all partial index files into one final index and records it"""
+
+    partialIndexes = list()
+    final = dict()
+    
+    # get partial index files
+    for file in os.listdir():
+        if file.startswith("partial_index_") and file.endswith(".pkl"):
+            partialIndexes.append(file)
+
+    # Sort the partial indexes by number to merge in order
+    partialIndexes.sort(key=lambda x: int(x.split("_")[-1].split(".")[0]))
+
+    # load/merge every partial index
+    for i, v in enumerate(partialIndexes):
+        partialData = load_pickle(v)
+        final = merge_dict(final, partialData)
+
+        # remove partial file after merge
+        os.remove(v)
+
+    # save merged final index
+    save_pickle(final, "final_index.pkl")
+    print(f"Final index saved as 'final_index.pkl' with {len(final)} unique tokens")
+
 
 def save_pickle(data, filename):
     """
@@ -174,6 +222,11 @@ def build_index():
         doc_id = data.get('url', doc_path)
         html_content = data.get('content', "")
         plain_text = parse_html(html_content)
+
+        # list of HTML tags that mark 'important' words
+        tag_list = ['title', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'b']
+        tagged_token_set = create_tagged_set(html_content, tag_list)
+    
         # Tokenize with stemming enabled (stop words are kept)
         tokens = tokenize(plain_text, remove_stopwords=False, use_stemming=True)
         
@@ -182,9 +235,14 @@ def build_index():
         for token in tokens:
             freq_dict[token] = freq_dict.get(token, 0) + 1
         
-        # Insert each token and its frequency into the index
+        # Insert each token, its frequency, and importance bool into the index
+        # default bool for 'important tokens' is False
         for token, freq in freq_dict.items():
-            insert_posting(index, token, doc_id, freq)
+            tag_bool = False 
+            if token in tagged_token_set:
+                tag_bool = True
+
+            insert_posting(index, token, doc_id, freq, tag_bool)
             token_count += 1
         
         # Check if the index has reached or exceeded 8,192 postings
@@ -211,7 +269,9 @@ def main():
     partial_count = build_index()
     
     
-    # # Build the inverted index from your dataset
+    # Merge partial indexes
+    # print("\nMerging all partial indexes...")
+    # mergePartialIndexes()
     # inverted_index = build_index()
     
     # Print basic statistics about the index
