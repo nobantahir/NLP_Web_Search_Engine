@@ -42,11 +42,32 @@ def total_docs():
 def total_tokens():
     return token_count
 
-def insert_posting(token_dict, token, doc_id, token_freq) -> dict:
-    """Insert a posting tuple (doc_id, token freq) into a token dictionary."""
+def create_tagged_set(content, tag_types:list) -> set:
+    """Given HTML content and a list of HTML tag types, return a set
+        of the words under those tags."""
+    tagged_set = set()
+    html_content = BeautifulSoup(content, 'lxml')
+    for tag in tag_types:
+        # get all text pieces under a certain HTML tag
+        # tokenize each piece and transform token list into a set
+        # tagged_items = set(tokenize(" ".join(html_content.find_all(tag))))
+        tagged_lines = htm_content.find_all(tag)
+        tagged_tokens = set()
+        
+        for line in tagged_lines:
+            temp_tokens = set(tokenize(line))
+            tagged_tokens = tagged_tokens | temp_tokens
+
+        tagged_set = tagged_set | tagged_tokens
+        # union of 2 sets
+
+    return tagged_set
+
+def insert_posting(token_dict, token, doc_id, token_freq, tagged) -> dict:
+    """Insert a posting tuple (doc_id, token freq, tagged) into a token dictionary."""
     if token not in token_dict:
         token_dict[token] = []
-    token_dict[token].append((doc_id, token_freq))
+    token_dict[token].append((doc_id, token_freq, tagged))
     return token_dict
 
 def merge_dict(dict_a, dict_b)->dict:
@@ -170,6 +191,11 @@ def build_index():
         doc_id = data.get('url', doc_path)
         html_content = data.get('content', "")
         plain_text = parse_html(html_content)
+
+        # list of HTML tags that mark 'important' words
+        tag_list = ['title', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'b']
+        tagged_token_set = create_tagged_set(html_content, tag_list)
+    
         # Tokenize with stemming enabled (stop words are kept)
         tokens = tokenize(plain_text, remove_stopwords=False, use_stemming=True)
         
@@ -178,9 +204,14 @@ def build_index():
         for token in tokens:
             freq_dict[token] = freq_dict.get(token, 0) + 1
         
-        # Insert each token and its frequency into the index
+        # Insert each token, its frequency, and importance bool into the index
+        # default bool for 'important tokens' is False
         for token, freq in freq_dict.items():
-            insert_posting(index, token, doc_id, freq)
+            tag_bool = False 
+            if token in tagged_token_set:
+                tag_bool = True
+
+            insert_posting(index, token, doc_id, freq, tag_bool)
             token_count += 1
         
         # Check if the index has reached or exceeded 8,192 postings
