@@ -2,6 +2,7 @@
 # Group 23
 # Catherine Fajardo, Yaqub Hasan, Kyle Jung, Noban Tahir
 
+import time
 import os
 import json
 import pickle
@@ -292,23 +293,33 @@ def boolean_search(query, index):
     return result_set or set()
 
 def main():
+    # Measure how long the indexing process takes
+    start_time = time.time()
+    
     partial_count = build_index()
     print("Total documents processed:", total_docs())
     print("Total token postings inserted:", total_tokens())
     print(f"{partial_count} partial index files have been saved.")
     
     final_index = merge_partial_indexes()
-
-    queries = [
-        "cristina lopes",
-        "machine learning",
-        "ACM",
-        "master of software engineering"
-    ]
-    print("\nBoolean AND Search Results:")
-    for q in queries:
-        results = boolean_search(q, final_index)
-        print(f"\nQuery: '{q}' => {len(results)} results")
+    
+    end_time = time.time()
+    print(f"Indexing and merging took {end_time - start_time:.2f} seconds.\n")
+    
+    # Now prompt for queries and measure each query's time
+    print("Enter queries (Boolean AND). Type 'exit' to quit.\n")
+    while True:
+        user_input = input("Query: ").strip()
+        if user_input.lower() == 'exit':
+            break
+        if not user_input:
+            continue
+        
+        query_start = time.time()
+        results = boolean_search(user_input, final_index)
+        query_end = time.time()
+        
+        print(f"Found {len(results)} results. (Query took {query_end - query_start:.4f} seconds.)")
         for doc_id in list(results)[:5]:
             print("  ", doc_id)
 
