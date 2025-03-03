@@ -294,18 +294,23 @@ def boolean_search(query, index):
 
 def main():
     # Measure how long the indexing process takes
-    start_time = time.time()
+    final_index = False
+    if not os.path.exists("final_index.pkl"):
+        start_time = time.time()
+        
+        partial_count = build_index()
+        print("Total documents processed:", total_docs())
+        print("Total token postings inserted:", total_tokens())
+        print(f"{partial_count} partial index files have been saved.")
+        
+        final_index = merge_partial_indexes()
+        
+        end_time = time.time()
+        print(f"Indexing and merging took {end_time - start_time:.2f} seconds.\n")
     
-    partial_count = build_index()
-    print("Total documents processed:", total_docs())
-    print("Total token postings inserted:", total_tokens())
-    print(f"{partial_count} partial index files have been saved.")
-    
-    final_index = merge_partial_indexes()
-    
-    end_time = time.time()
-    print(f"Indexing and merging took {end_time - start_time:.2f} seconds.\n")
-    
+    if not final_index:
+        final_index = pickle.load(open("final_index.pkl", "rb"))
+        
     # Now prompt for queries and measure each query's time
     print("Enter queries (Boolean AND). Type 'exit' to quit.\n")
     while True:
