@@ -8,21 +8,14 @@ import pickle
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning, XMLParsedAsHTMLWarning
 import warnings
 import nltk
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
+import re
+import nltk
 from nltk.stem import PorterStemmer
-import sys
-
-SYS_MEMORY_USAGE = 0
-GLOBAL_DUMP = 1024000
 
 # Download necessary NLTK data
-nltk.download('punkt')
-nltk.download('stopwords')
-nltk.download('punkt_tab')
+nltk.download('punkt', quiet=True)
 
-# Set up stop words and the Porter Stemmer
-stop_words = set(stopwords.words('english'))
+# Set up Porter Stemmer
 ps = PorterStemmer()
 
 # Ignore warnings for content resembling URLs or XML parsed as HTML
@@ -46,6 +39,73 @@ def total_docs():
 def total_tokens():
     return token_count
 
+def insert_posting(token_dict, token, doc_id, token_freq, tagged) -> dict:
+    """Insert a posting tuple (doc_id, token freq, tagged) into a token dictionary."""
+    if token not in token_dict:
+        token_dict[token] = []
+    token_dict[token].append((doc_id, token_freq, tagged))
+    return token_dict
+
+def merge_dict(dict_a, dict_b):
+    """Merge two token dictionaries."""
+     # We copy dict_a so we don't change the original, then add in dict_b's postings without sorting.
+    merged_dict = dict_a.copy()
+    for token, postings in dict_b.items():
+        if token not in merged_dict:
+            merged_dict[token] = []
+        merged_dict[token] += postings
+    return merged_dict
+
+# ------------------------------------------------------
+# File I/O for Pickle
+# ------------------------------------------------------
+def save_pickle(data, filename):
+    """Save data to a pickle file."""
+    with open(filename, 'wb') as f:
+        pickle.dump(data, f)
+    print(f"Data saved to {filename}")
+
+def load_pickle(filename):
+    """Load and return data from a pickle file."""
+    if not os.path.exists(filename):
+        print(f"Pickle file '{filename}' does not exist. Returning empty dictionary.")
+        return {}
+    with open(filename, 'rb') as f:
+        data = pickle.load(f)
+    print(f"Data loaded from {filename}")
+    return data
+
+# ------------------------------------------------------
+# HTML Parsing & Tokenization
+# ------------------------------------------------------
+def parse_html(content):
+    """Use BeautifulSoup with 'lxml' to extract plain text from HTML."""
+    soup = BeautifulSoup(content, 'lxml')
+    return soup.get_text(separator=" ")
+
+def tokenize(text):
+    """
+    Tokenize text using a regex approach
+    
+    Ignoring tokens < 3 chars or containing 'http'/'www',
+    then apply Porter stemming.
+    """
+    # Capture alphanumeric sequences only, in lowercase
+    raw_tokens = re.findall(r'[a-zA-Z0-9]+', text.lower())
+    filtered_tokens = []
+    
+    for tok in raw_tokens:
+        # Ignore tokens shorter than 3 chars
+        if len(tok) < 3:
+            continue
+        # Skip anything that looks like a link
+        if "http" in tok or "www" in tok:
+            continue
+        # Stem the token using PorterStemmer
+        stemmed = ps.stem(tok)
+        filtered_tokens.append(stemmed)
+    return filtered_tokens
+
 def create_tagged_set(content, tag_types:list) -> set:
     """Given HTML content and a list of HTML tag types, return a set
         of the words under those tags."""
@@ -67,229 +127,190 @@ def create_tagged_set(content, tag_types:list) -> set:
         
     return tagged_set
 
-def insert_posting(token_dict, token, doc_id, token_freq, tagged) -> dict:
-    """Insert a posting tuple (doc_id, token freq, tagged) into a token dictionary."""
-    if token not in token_dict:
-        token_dict[token] = []
-    token_dict[token].append((doc_id, token_freq, tagged))
-    return token_dict
-
-def merge_dict(dict_a, dict_b)->dict:
-    """Merge two token dicts."""
-    # We copy dict_a so we don't change the original, then add in dict_b's postings without sorting.
-    merged_dict = dict_a.copy()
-    for token, postlist in dict_b.items():
-        if token not in merged_dict:
-            merged_dict[token] = []
-        merged_dict[token] += postlist
-    return merged_dict
-
-def retrievePaths():
+# ------------------------------------------------------
+# Path Retrieval
+# ------------------------------------------------------
+def retrieve_paths():
     """retrieves list of all file paths within directory of developer/dev"""
-
-    # get paths for current directory and dev folder
-    currentDir = os.path.dirname(os.path.abspath(__file__))
-    pathDev = os.path.join(currentDir, "developer", "DEV")
     
-    if not os.path.exists(pathDev):
-        print(f"Error: directory '{pathDev}' does not exist.")
+    # get paths for current directory and dev folder
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    path_dev = os.path.join(current_dir, "developer", "DEV")
+    
+    if not os.path.exists(path_dev):
+        print(f"Error: directory '{path_dev}' does not exist.")
         return []
     
     # Return a list of JSON file paths
-    return [os.path.join(base, page)
-            for base, _, docs in os.walk(pathDev)
-            for page in docs if page.endswith(".json")]
+    return [
+        os.path.join(base, page)
+        for base, _, docs in os.walk(path_dev)
+        for page in docs if page.endswith(".json")]
 
-def mergePartialIndexes():
-    """merges all partial index files into one final index and records it"""
-
-    partialIndexes = list()
-    final = dict()
-    
-    # get partial index files
-    for file in os.listdir():
-        if file.startswith("partial_index_") and file.endswith(".pkl"):
-            partialIndexes.append(file)
-
-    # Sort the partial indexes by number to merge in order
-    partialIndexes.sort(key=lambda x: int(x.split("_")[-1].split(".")[0]))
-
-    # load/merge every partial index
-    for i, v in enumerate(partialIndexes):
-        partialData = load_pickle(v)
-        final = merge_dict(final, partialData)
-
-        # remove partial file after merge
-        os.remove(v)
-
-    # save merged final index
-    save_pickle(final, "final_index.pkl")
-    print(f"Final index saved as 'final_index.pkl' with {len(final)} unique tokens")
-
-
-def save_pickle(data, filename):
-    """
-    Save the given data to a pickle file. This allows you to store and later reload your index.
-    """
-    with open(filename, 'wb') as f:
-        pickle.dump(data, f)
-    print(f"Data saved to {filename}")
-
-def load_pickle(filename):
-    """
-    Load and return data from a pickle file. If the file doesn't exist, return an empty dictionary.
-    """
-    if not os.path.exists(filename):
-        print(f"Pickle file {filename} does not exist. Returning empty dictionary.")
-        return {}
-    with open(filename, 'rb') as f:
-        data = pickle.load(f)
-    print(f"Data loaded from {filename}")
-    return data
-
-def update_pickle(new_data, filename):
-    """
-    Update the pickle file by merging existing data with new_data, then saving.
-    """
-    data = load_pickle(filename)
-    data = merge_dict(data, new_data)
-    save_pickle(data, filename)
-
-def get_pickle_size(filename):
-    """
-    Return the size of the pickle file in kilobytes (KB).
-    """
-    if os.path.exists(filename):
-        size_bytes = os.path.getsize(filename)
-        return size_bytes / 1024.0
-    else:
-        print(f"Pickle file {filename} does not exist.")
-        return 0 
-
-def save_partial_index(index, partial_num):
-    """Save a partial index to a pickle file named with its partial number without printing."""
-    filename = f"partial_index_{partial_num}.pkl"
-    with open(filename, 'wb') as f:
-        pickle.dump(index, f)
-
-def parse_html(content):
-    """
-    Use BeautifulSoup with the lxml parser to extract plain text from HTML content.
-    """
-    soup = BeautifulSoup(content, 'lxml')
-    return soup.get_text(separator=" ")
-
-def tokenize(text, remove_stopwords=False, use_stemming=True):
-    """
-    Tokenize text using nltk's word_tokenize.
-    
-    Parameters:
-      - remove_stopwords: if True, remove tokens that are in the stop_words set.
-      - use_stemming: if True, apply Porter stemming to each token.
-    """
-    tokens = word_tokenize(text.lower())
-    
-    if remove_stopwords and use_stemming:
-        tokens = [ps.stem(token) for token in tokens if token not in stop_words]
-        
-    elif remove_stopwords:
-        tokens = [token for token in tokens if token not in stop_words]
-    
-    elif use_stemming:
-        tokens = [ps.stem(token) for token in tokens]
-
-    return tokens
-
+# ------------------------------------------------------
+# Index Building
+# ------------------------------------------------------
 def build_index():
     """
-    Build the inverted index from all JSON files in the specified folder.
+    Build the inverted index from all JSON files, dumping partial indexes exactly 3 times:
+    1) After processing ~1/3 of the documents
+    2) After processing ~2/3 of the documents
+    3) After processing all documents
     """
     global doc_count, token_count
-    index = {}
-    partial_count = 0
-    paths = retrievePaths()
     
-    for doc_path in paths:
+    # Retrieve all JSON file paths from the "developer/DEV" folder
+    paths = retrieve_paths()
+    total_files = len(paths)
+    
+    # If no files are found, print a message and return
+    if total_files == 0:
+        print("No JSON files found.")
+        return 0
+    
+    # Determine the cut-off points for dumping partial indexes:
+    # dump1 is at 1/3 of the total files, dump2 is at 2/3 of the total files
+    dump1 = total_files // 3
+    dump2 = (total_files * 2) // 3
+    
+    # This dictionary will hold our in-memory index until we dump it
+    index = {}
+    # Keep track of how many partial indexes we've saved so far
+    partial_count = 0
+    
+    # Loop over each file path, using enumerate to track the index (i)
+    for i, doc_path in enumerate(paths):
         try:
+            # Attempt to open and load the JSON file
             with open(doc_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
         except Exception as e:
+            # If there's an error reading the file, print a message and skip
             print(f"Error reading {doc_path}: {e}")
             continue
         
+        # Increment the global document counter
         doc_count += 1
-        # Use the 'url' field as the document identifier, or fallback to the file path
-        doc_id = data.get('url', doc_path)
+        
+        # Extract the "content" field; skip if it's empty or just whitespace
         html_content = data.get('content', "")
-        plain_text = parse_html(html_content)
-
-        # list of HTML tags that mark 'important' words
+        if not html_content.strip():
+            continue
+        
+        # Get the document's URL or fallback to its file path
+        doc_id = data.get('url', doc_path)
+        # Convert the HTML content to plain text
+        text_content = parse_html(html_content)
+        
+        # Tokenize the text content (regex-based, no stopword removal)
+        tokens = tokenize(text_content)
+        
+        # If tokenization yields no tokens, skip this file
+        if not tokens:
+            continue
+        
+         # List of HTML tags that mark 'important' words
         tag_list = ['title', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'b']
-        tagged_token_set = create_tagged_set(html_content, tag_list)
-    
-        # Tokenize with stemming enabled (stop words are kept)
-        tokens = tokenize(plain_text, remove_stopwords=False, use_stemming=True)
+        important_tokens = create_tagged_set(html_content, tag_list)
         
-        # Create a frequency dictionary for tokens in this document
+        # Build a frequency dictionary for tokens in this document
         freq_dict = {}
-        for token in tokens:
-            freq_dict[token] = freq_dict.get(token, 0) + 1
+        for t in tokens:
+            freq_dict[t] = freq_dict.get(t, 0) + 1
         
-        # Insert each token, its frequency, and importance bool into the index
-        # default bool for 'important tokens' is False
+        # If the frequency dictionary is empty, skip
+        if not freq_dict:
+            continue
+        
+        # Insert each token posting into our index, noting if it's "important"
         for token, freq in freq_dict.items():
-            tag_bool = False 
-            if token in tagged_token_set:
-                tag_bool = True
-
-            insert_posting(index, token, doc_id, freq, tag_bool)
+            is_important = (token in important_tokens)
+            insert_posting(index, token, doc_id, freq, is_important)
+            # Increment the global token postings counter
             token_count += 1
         
-        # Check if the index has reached or exceeded 8,192 postings
-        global GLOBAL_DUMP
-
-        if len(index.items()) > 100000:
-            save_partial_index(index, partial_count)
-            global SYS_MEMORY_USAGE
-            SYS_MEMORY_USAGE += sys.getsizeof(index)
-            index.clear()  # Clear the index for the next partial
+        # Check if we've reached one of our partial dumping milestones
+        if (i + 1) == dump1 or (i + 1) == dump2 or (i + 1) == total_files:
+            # Sort the index by token alphabetically before dumping
+            sorted_index = dict(sorted(index.items(), key=lambda x: x[0]))
+            # Save this partial index to a pickle file
+            save_pickle(sorted_index, f"partial_index_{partial_count}.pkl")
+            # Clear the index to start fresh for the next batch and increment the partial index count
+            index.clear()
             partial_count += 1
     
-    # Save any remaining postings as a final partial index
-    if index:
-        save_partial_index(index, partial_count)
-        partial_count += 1
+    # Return how many partial indexes were saved
+    return partial_count
+
+# ------------------------------------------------------
+# Merge Partial Indexes
+# ------------------------------------------------------
+def merge_partial_indexes():
+    """
+    Merge all partial indexes (partial_index_*.pkl) into a final index file named 'final_index.pkl'.
+    """
+    # Find all files that match the naming pattern for partial indexes
+    pkl_files = [f for f in os.listdir() if f.startswith("partial_index_") and f.endswith(".pkl")]
+    # Sort them by their numeric suffix (e.g., partial_index_0.pkl, partial_index_1.pkl, etc.)
+    pkl_files.sort(key=lambda x: int(x.split("_")[-1].split(".")[0]))
     
-    # For now we don't merge partial indexes since that will be implemented later by someone else.
-    return partial_count  # Return the number of partial indexes saved
+    final_index = {}
+    # Load each partial index, merge into 'final_index', then remove the partial file
+    for pf in pkl_files:
+        data = load_pickle(pf)
+        final_index = merge_dict(final_index, data)
+        os.remove(pf)
     
+    # Sort the final index by token before saving
+    final_index = dict(sorted(final_index.items(), key=lambda x: x[0]))
+    save_pickle(final_index, "final_index.pkl")
+    print(f"Final index saved as 'final_index.pkl' with {len(final_index)} unique tokens.")
+    return final_index
+
+# ------------------------------------------------------
+# Boolean AND Search
+# ------------------------------------------------------
+def boolean_search(query, index):
+    """Perform a Boolean AND search on the final index for the given query."""
+    # Convert the query string into tokens
+    query_tokens = tokenize(query)
+    result_set = None
+    
+    # For each token, get the set of doc_ids and intersect them
+    for token in query_tokens:
+        postings = index.get(token, [])
+        doc_ids = {doc_id for doc_id, freq, imp in postings}
+        
+        # If it's the first token, initialize result_set;
+        # otherwise, intersect with existing results
+        if result_set is None:
+            result_set = doc_ids
+        else:
+            result_set = result_set.intersection(doc_ids)
+    
+    # Return an empty set if result_set is None
+    return result_set or set()
+
 def main():
-    
-    # Build the inverted index and get the count of partial indexes saved.
     partial_count = build_index()
-    
-    
-    # Merge partial indexes
-    # print("\nMerging all partial indexes...")
-    # mergePartialIndexes()
-    # inverted_index = build_index()
-    
-    # Print basic statistics about the index
     print("Total documents processed:", total_docs())
     print("Total token postings inserted:", total_tokens())
-    # print("Unique tokens in index:", len(inverted_index))
     print(f"{partial_count} partial index files have been saved.")
-    print(f"Total memory usage {SYS_MEMORY_USAGE/1024} KBs.")
     
-    # # ----- Pickle Part -----
-    # # Save the index to a pickle file for persistence
-    # pickle_filename = "inverted_index.pkl"
-    # save_pickle(inverted_index, pickle_filename)
-    
-    # # Load the index back from the pickle file to verify it saved correctly
-    # loaded_index = load_pickle(pickle_filename)
-    # size_kb = get_pickle_size(pickle_filename)
-    # print(f"Pickle file size: {size_kb:.2f} KB")
+    final_index = merge_partial_indexes()
+
+    queries = [
+        "cristina lopes",
+        "machine learning",
+        "ACM",
+        "master of software engineering"
+    ]
+    print("\nBoolean AND Search Results:")
+    for q in queries:
+        results = boolean_search(q, final_index)
+        print(f"\nQuery: '{q}' => {len(results)} results")
+        for doc_id in list(results)[:5]:
+            print("  ", doc_id)
 
 if __name__ == "__main__":
     main()
