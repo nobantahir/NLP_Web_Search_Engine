@@ -2,13 +2,14 @@
 # Group 23
 # Catherine Fajardo, Yaqub Hasan, Kyle Jung, Noban Tahir
 
-import time
-import os
 import json
-import re
-import warnings
 import nltk
+import os
 import pickle
+import re
+import struct
+import time
+import warnings
 import zlib
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning, XMLParsedAsHTMLWarning
 from collections import Counter
