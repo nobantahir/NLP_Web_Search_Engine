@@ -285,6 +285,11 @@ def search():
         elapsed=elapsed_time,
         results=results_list
     )
+@app.route("/debug-list")
+def debug_list():
+    import os
+    files = os.listdir(".")
+    return {"files_in_cwd": files}
 if __name__ == "__main__":
     # Initialize the index before running the Flask server
     print("About to initialize index...")
