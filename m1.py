@@ -14,6 +14,7 @@ import zlib
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning, XMLParsedAsHTMLWarning
 from collections import Counter
 from nltk.stem import PorterStemmer
+from math import log
 
 # Download necessary NLTK data
 nltk.download('punkt', quiet=True)
@@ -60,6 +61,26 @@ def insert_posting(token_dict, token, doc_id_int, token_freq, is_important=False
         token_dict[token] = []
     token_dict[token].append((doc_id_int, token_freq, is_important))
     return token_dict
+
+# -----------------------------------------------------------------------------
+# Scoring Calculations
+# -----------------------------------------------------------------------------
+def calc_tf(token_freq, token_total, token):
+    """Calculate the term frequency (tf) of a document and a given token."""
+    return (token_freq / token_count)
+
+def calc_idf(doc_freq):
+    """Calculate the inverse document frequency (idf) of a document and given token."""
+    global doc_count
+    return log((doc_count/doc_freq), 10)
+
+def calc_tf_idf(token, token_freq, token_total, doc_freq):
+    """Calculate the tf-idf score of a document and a given token."""
+    tf_score = calc_tf(token_freq, token_total, token)
+    idf_score = calc_idf(doc_freq)
+    # tf-idf = (1+log(tf)) * log(idf_score)
+    return ((1+log(tf_score, 10)) * (log(idf_score, 10)))
+
 
 # -----------------------------------------------------------------------------
 # Merge two dictionaries
