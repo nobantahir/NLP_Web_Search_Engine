@@ -7,10 +7,10 @@ import nltk
 import os
 import pickle
 import re
-import struct
 import time
 import warnings
 import zlib
+from binary_search import BinarySearch
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning, XMLParsedAsHTMLWarning
 from collections import Counter
 from nltk.stem import PorterStemmer
@@ -369,7 +369,7 @@ def initialize_index():
     """
     global final_index, doc2url, INDEX_READY
 
-    if os.path.exists("final_index.pkl"):
+    try:
         # Load existing index
         final_index_loaded = load_pickle("final_index.pkl")
         final_index.update(final_index_loaded)
@@ -378,7 +378,7 @@ def initialize_index():
             doc2url_map = load_pickle("doc2url.pkl")
             doc2url.update(doc2url_map)
         INDEX_READY = True
-    else:
+    except:
         # Build index from scratch
         start_time = time.time()
         partial_count = build_index()
@@ -394,3 +394,7 @@ def initialize_index():
         # Save doc2url
         save_pickle(doc2url, "doc2url.pkl")
         INDEX_READY = True
+    finally:
+        save_pickle(final_index, "final_index.pkl")
+        bs = BinarySearch("final_index.pkl")
+    
