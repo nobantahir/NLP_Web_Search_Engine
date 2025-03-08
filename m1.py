@@ -20,6 +20,8 @@ nltk.download('punkt', quiet=True)
 
 # Set up the Porter Stemmer
 ps = PorterStemmer()
+# Create global for BinarySearch
+bs = None
 
 # Ignore warnings for content resembling URLs or XML parsed as HTML
 warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
@@ -396,5 +398,6 @@ def initialize_index():
         INDEX_READY = True
     finally:
         save_pickle(final_index, "final_index.pkl")
+        global bs
         bs = BinarySearch("final_index.pkl")
     
