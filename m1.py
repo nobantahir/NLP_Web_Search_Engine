@@ -489,16 +489,31 @@ def search_loop(bs):
         # Print the execution time
         print(f"Search completed in {execution_time_ms:.2f} ms\n")
 
+def bin_search(search_query):
+    """Boolean single search operation but using the bs object."""
+    global bs
+    search_tokens = tokenize(search_query)
+    result_list = []
 
+    for item in search_tokens:
+        result_list.append(bs.single_search(item))
+    
+    merged_results = merge_by_smallest_lst(result_list)
+    
+    final_results = merged_results[:10]
+
+    url_results = [item[0] for item in final_results]
+    
+    return url_results
 
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
     #print("Initializing Index.")
-    initialize_index()
+    #initialize_index()
     bs = initialize_index()
-    search_loop(bs)
+    #search_loop(bs)
 
     #bs = BinarySearch("final_index.pkl")
     #search_loop(bin)

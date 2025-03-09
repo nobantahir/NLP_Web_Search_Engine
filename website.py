@@ -266,7 +266,7 @@ def search():
 
     query = request.args.get("q", "").strip()
     start_time = time.time()
-    results_set = m1.boolean_search(query, m1.final_index)
+    results_set = m1.bin_search(query)
     end_time = time.time()
 
     # Convert doc IDs to URLs, show top 20
