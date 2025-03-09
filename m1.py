@@ -33,6 +33,8 @@ warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 # -----------------------------------------------------------------------------
 doc_count = 0        # Number of documents processed
 token_count = 0      # Number of token postings inserted
+current_file = 0     # Tracks which file is currently being processed
+total_files = 0      # Stores the total number of files to process
 doc2id = {}          # Maps a document URL -> integer docID
 doc2url = {}         # Maps an integer docID -> the original document URL
 next_doc_id = 0      # Keeps track of the next available integer docID
@@ -202,12 +204,15 @@ def build_index():
     Build the inverted index from all JSON files, dumping partial indexes
     exactly 3 times (1/3, 2/3, and end). Also does dynamic partial dumps
     if the index grows too large (MAX_POSTINGS).
+
+    This function also tracks progress by updating 'current_file'
+    (which file we're on) and 'total_files' (total number of files).
     """
-    global doc_count, token_count
+    global doc_count, token_count, current_file, total_files
 
     # Retrieve all JSON file paths from the "developer/DEV" folder
     paths = retrieve_paths()
-    total_files = len(paths)
+    total_files = len(paths)  # Set total number of files for progress tracking
     
     # If no files are found, print a message and return
     if total_files == 0:
@@ -219,13 +224,16 @@ def build_index():
     dump1 = total_files // 3
     dump2 = (total_files * 2) // 3
 
-     # This dictionary will hold our in-memory index until we dump it
+    # This dictionary will hold our in-memory index until we dump it
     index = {}
-     # Keep track of how many partial indexes we've saved so far
+    # Keep track of how many partial indexes we've saved so far
     partial_count = 0
 
-     # Loop over each file path, using enumerate to track the index (i)
+    # Loop over each file path, using enumerate to track the index (i)
     for i, doc_path in enumerate(paths):
+        # Update the global 'current_file' so we know how many files have been processed
+        current_file = i + 1
+
         try:
             # Attempt to open and load the JSON file
             with open(doc_path, 'r', encoding='utf-8') as f:
@@ -291,7 +299,7 @@ def build_index():
             index.clear()
             partial_count += 1
 
-     # Return how many partial indexes were saved
+    # Return how many partial indexes were saved
     return partial_count
 
 # -----------------------------------------------------------------------------

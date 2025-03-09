@@ -105,6 +105,106 @@ HTML_INDEX_PAGE = """
 </body>
 </html>
 """
+HTML_NOT_READY_PAGE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>A23 Search Engine - Building Index</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background: #f0f0f0;
+            font-family: Arial, sans-serif;
+            display: flex; flex-direction: column;
+            min-height: 100vh;
+        }
+        header {
+            background: #003366; color: #fff; padding: 1rem; text-align: center;
+        }
+        header h1 { margin: 0; }
+        header h1 a { color: #fff; text-decoration: none; }
+        header h1 a:hover { text-decoration: underline; }
+        .container {
+            max-width: 1000px;
+            margin: 2rem auto;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 6px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .progress-wrapper {
+            margin: 2rem auto;
+            width: 80%;
+            background: #ccc;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 30px;
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #003366;
+            color: #fff;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+        }
+        footer {
+            background: #003366;
+            color: #fff;
+            padding: 1rem;
+            text-align: center;
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><a href="/">A23 Search Engine</a></h1>
+    </header>
+    <div class="container">
+        <h2>Index is still building or loading</h2>
+        <p>Please wait a moment while we process documents.</p>
+        
+        <!-- Progress Bar -->
+        <div class="progress-wrapper">
+            <div id="progress-bar" class="progress-bar">0%</div>
+        </div>
+        <p>This may take a few minutes depending on the dataset size.</p>
+    </div>
+    <footer></footer>
+
+    <!-- Simple JS to poll progress endpoint -->
+    <script>
+    function updateProgress() {
+      fetch("/progress")
+        .then(response => response.json())
+        .then(data => {
+          const bar = document.getElementById("progress-bar");
+          const pct = data.progress;
+          bar.style.width = pct + "%";
+          bar.textContent = pct + "%";
+
+          // If progress < 100, keep polling every 2 seconds
+          if (pct < 100) {
+            setTimeout(updateProgress, 2000);
+          } else {
+            // Once it's 100%, maybe prompt the user to refresh
+            bar.textContent = "Indexing complete! Please refresh.";
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching progress:", err);
+        });
+    }
+
+    // Start polling on page load
+    updateProgress();
+    </script>
+</body>
+</html>
+"""
 HTML_RESULTS_PAGE = """
 <!DOCTYPE html>
 <html>
@@ -231,13 +331,11 @@ HTML_RESULTS_PAGE = """
             <button type="submit">Search</button>
         </form>
 
-        <!-- Show how many results were found and how long the query took (in ms) -->
         {% if count == 0 %}
             <p>No results found. (Query completed in {{elapsed}} ms.)</p>
         {% else %}
             <p>Your search returned {{count}} results in total. Displaying the top 10 below. (Query completed in {{elapsed}} ms.)</p>
         {% endif %}
-
 
         {% if results and results|length > 0 %}
           <table>
@@ -251,15 +349,13 @@ HTML_RESULTS_PAGE = """
             <tbody>
               {% for item in results %}
                 <tr>
-                    <td>{{ loop.index }}</td>  <!-- loop.index is 1-based -->
+                    <td>{{ loop.index }}</td>
                     <td class="url-col"><a href="{{ item.url }}" target="_blank">{{ item.url }}</a></td>
                     <td class="freq-col">{{ item.freq }}</td>
-                    </tr>
-                {% endfor %}
+                </tr>
+              {% endfor %}
             </tbody>
           </table>
-        {% else %}
-            <p></p>
         {% endif %}
 
         <!-- "Go Back" button -->
@@ -276,27 +372,39 @@ HTML_RESULTS_PAGE = """
 
 @app.route("/")
 def index_page():
-    """Route for the home page. Shows a simple search form."""
+    """Route for the home page."""
     if not m1.INDEX_READY:
-        return "<h1>Index is still building or loading. Please refresh.</h1>"
+        return render_template_string(HTML_NOT_READY_PAGE)
     return render_template_string(HTML_INDEX_PAGE)
+
+@app.route("/progress")
+def progress():
+    """
+    Returns approximate indexing progress as a percentage.
+    E.g. {"progress": 42}
+    """
+    if m1.total_files == 0:
+        # Avoid division by zero if no files
+        return {"progress": 0}
+
+    # Calculate approximate percentage
+    pct = int((m1.current_file / m1.total_files) * 100)
+    return {"progress": pct}
 
 @app.route("/search")
 def search():
+    """Route for handling search queries."""
     if not m1.INDEX_READY:
-        return "<h1>Index is still building or loading. Please refresh.</h1>"
+        return render_template_string(HTML_NOT_READY_PAGE)
 
     query = request.args.get("q", "").strip()
-    
     if not query:
         return render_template_string(HTML_INDEX_PAGE)
 
     start_time = time.time()
-    # This is now a list of (doc_id, freq) pairs
     merged_results = m1.bin_search(query)
     end_time = time.time()
 
-    # Convert time to milliseconds
     execution_time_ms = (end_time - start_time) * 1000
     elapsed_time = f"{execution_time_ms:.2f}"
     top_results = merged_results[:10]
@@ -313,14 +421,19 @@ def search():
         elapsed=elapsed_time,
         results=results_list
     )
-@app.route("/debug-list")
-def debug_list():
-    import os
-    files = os.listdir(".")
-    return {"files_in_cwd": files}
+
+def start_index_thread():
+    """Start index building in a background thread."""
+    import threading
+    def run_index():
+        print("Index building in background thread...")
+        m1.initialize_index()
+        print("Index is ready.")
+
+    thread = threading.Thread(target=run_index)
+    thread.start()
+
 if __name__ == "__main__":
-    # Initialize the index before running the Flask server
-    print("About to initialize index...")
-    m1.initialize_index()
     print("Flask server running at http://127.0.0.1:5000/")
+    start_index_thread()  # Begin building the index in the background
     app.run(debug=True, port=5000)
