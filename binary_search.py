@@ -116,19 +116,18 @@ class BinarySearch:
         return ps.stem(term.lower())
 
     def single_search(self, term, result_count):
-        """Search for a stemmed term and return the top X results.
+        """Search for a stemmed term and return the results.
            
            If not in index, return empty list. 
 
            Get the posting list from the key:value pair and then adjust the scores.
            If important -> add ten to frequency.
 
-           Sort by frequency and return specified count of results in descending order.
+           Return tuple pairs with only doc_id and adjusted score.
         """
         stemmed_term = self.stem_term(term)
         if stemmed_term in self.index_of_index:
             result = self.get_item(stemmed_term)
-            adjusted_result = [(doc_id, freq + (10 if important else 0), important) for doc_id, freq, important in result]
-            sorted_result = sorted(adjusted_result, key=lambda x: x[1], reverse=True)
-            return sorted_result[:result_count]
+            adjusted_result = [(doc_id, freq + (10 if important else 0)) for doc_id, freq, important in result]
+            return adjusted_result
         return []

@@ -320,7 +320,7 @@ def merge_partial_indexes():
 # -----------------------------------------------------------------------------
 # Boolean AND Search
 # -----------------------------------------------------------------------------
-def boolean_search(query, index):
+def boolean_search(query, bs):
     """
     Perform a Boolean AND search on the final index for the given query.
     If any token doesn't exist, it returns an empty set. Otherwise, it
@@ -336,7 +336,7 @@ def boolean_search(query, index):
     result_set = None
     # For each token in the query, retrieve the associated postings from the index
     for token in query_tokens:
-        postings = index.get(token, [])
+        postings = bs.single_search(token)
         
         # If this token isn't found in the index (no postings), we can return an empty set
         if not postings:
@@ -400,4 +400,47 @@ def initialize_index():
         save_pickle(final_index, "final_index.pkl")
         global bs
         bs = BinarySearch("final_index.pkl")
-    
+    return bs
+
+
+# -----------------------------------------------------------------------------
+# Main
+# -----------------------------------------------------------------------------
+def search_loop(bs):
+    """Interactive search method that prompts for queries and displays results."""
+    print("Enter your search queries or type 'quit' to exit.")
+    print()
+
+    while True:
+        search_query = input("Enter a search term (or 'quit' to exit): ")
+        if search_query.lower() == 'quit':
+            break
+        
+        result_list = []
+        for item in search_query.lower().split(" "):
+            result_list.append(bs.single_search(item))
+        start_time = time.time()
+        results = bs.single_search(search_query)
+        end_time = time.time()
+
+        # Calculate the execution time in milliseconds
+        execution_time_ms = (end_time - start_time) * 1000
+
+        stemmed_query = bs.stem_term(search_query)
+        if results:
+            print(f"Top 5 results for '{search_query}' (stemmed to '{stemmed_query}'):")
+            for i, result in enumerate(results, 1):
+                print(f"  {i}. {result[0]}")
+        else:
+            print(f"No results found for '{search_query}' (stemmed to '{stemmed_query}').")
+
+        # Print the execution time
+        print(f"Search completed in {execution_time_ms:.2f} ms")
+
+
+# -----------------------------------------------------------------------------
+# Main
+# -----------------------------------------------------------------------------
+if __name__ == "__main__":
+    bin = initialize_index()
+    search_loop(bin)
