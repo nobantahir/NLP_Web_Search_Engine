@@ -14,6 +14,7 @@ from binary_search import BinarySearch
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning, XMLParsedAsHTMLWarning
 from collections import Counter
 from nltk.stem import PorterStemmer
+from tools import timer, print_returns, count_calls
 
 # Download necessary NLTK data
 nltk.download('punkt', quiet=True)
@@ -121,6 +122,7 @@ def parse_html(content):
     soup = BeautifulSoup(content, 'lxml')
     return soup.get_text(separator=" ")
 
+#@count_calls
 def tokenize(text):
     """
     Tokenize text using a regex approach, ignoring tokens < 3 chars
@@ -371,7 +373,8 @@ def initialize_index():
     """
     global final_index, doc2url, INDEX_READY
 
-    try:
+    if os.path.exists("final_index.pkl"):
+        print("Loading Index.")
         # Load existing index
         final_index_loaded = load_pickle("final_index.pkl")
         final_index.update(final_index_loaded)
@@ -380,7 +383,8 @@ def initialize_index():
             doc2url_map = load_pickle("doc2url.pkl")
             doc2url.update(doc2url_map)
         INDEX_READY = True
-    except:
+    else:
+        print("Building Index.")
         # Build index from scratch
         start_time = time.time()
         partial_count = build_index()
@@ -396,11 +400,53 @@ def initialize_index():
         # Save doc2url
         save_pickle(doc2url, "doc2url.pkl")
         INDEX_READY = True
-    finally:
-        save_pickle(final_index, "final_index.pkl")
-        global bs
-        bs = BinarySearch("final_index.pkl")
+    
+    global bs
+    bs = BinarySearch("final_index.pkl")
     return bs
+
+# -----------------------------------------------------------------------------
+# Posting Combinations
+# -----------------------------------------------------------------------------
+def merge_postings(lst1, lst2):
+    """Takes two lists of postings, intersects them and adds freq for shared doc_id."""
+    merged_list = []
+
+    i, j = 0, 0
+    while i < len(lst1) and j < len(lst2):
+        if lst1[i][0] < lst2[j][0]:
+            i += 1
+        elif lst1[i][0] > lst2[j][0]:
+            j += 1
+        else:
+            merged_list.append((lst1[i][0], lst1[i][1] + lst2[j][1])) # When doc_id matches, add freq and put in list of common
+            i += 1
+            j += 1
+
+    return merged_list
+
+
+def merge_by_smallest_lst(lsts):
+    """Merge all posting lists in order from smallest to largest.
+       after merging all, return list sorted by freq.
+    """
+
+    if len(lsts) == 1:
+        return sorted(lsts[0], key=lambda x: x[1], reverse=True)[:20]
+    
+    if len(lsts) == 2:
+        merged = merge_postings(lsts[0], lsts[1])
+        return sorted(merged, key=lambda x: x[1], reverse=True)[:20]
+    
+    lsts.sort(key=len)
+
+    result = lsts[0]
+
+    for i in range(1, len(lsts)):
+        result = merge_postings(result, lsts[i])
+
+    # Sort by frequency in descending order and return top 20
+    return sorted(result, key=lambda x: x[1], reverse=True)[:20]
 
 
 # -----------------------------------------------------------------------------
@@ -417,23 +463,23 @@ def search_loop(bs):
             break
         
         result_list = []
+        start_time = time.time()
         for item in search_query.lower().split(" "):
             result_list.append(bs.single_search(item))
-        start_time = time.time()
-        results = bs.single_search(search_query)
+        final_results = merge_by_smallest_lst(result_list)
         end_time = time.time()
 
         # Calculate the execution time in milliseconds
         execution_time_ms = (end_time - start_time) * 1000
 
         stemmed_query = bs.stem_term(search_query)
-        if results:
-            print(f"Top 5 results for '{search_query}' (stemmed to '{stemmed_query}'):")
-            for i, result in enumerate(results, 1):
-                print(f"  {i}. {result[0]}")
-        else:
-            print(f"No results found for '{search_query}' (stemmed to '{stemmed_query}').")
-
+        #if final_results:
+        #    print(f"Top 5 results for '{search_query}' (stemmed to '{stemmed_query}'):")
+        #    for i, result in enumerate(final_results, 1):
+        #        print(f"  {i}. {result[0]}")
+        #else:
+        #    print(f"No results found for '{search_query}' (stemmed to '{stemmed_query}').")
+        print(final_results)
         # Print the execution time
         print(f"Search completed in {execution_time_ms:.2f} ms")
 
@@ -442,5 +488,10 @@ def search_loop(bs):
 # Main
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
-    bin = initialize_index()
-    search_loop(bin)
+    #print("Initializing Index.")
+    initialize_index()
+    bs = initialize_index()
+    search_loop(bs)
+
+    #bs = BinarySearch("final_index.pkl")
+    #search_loop(bin)

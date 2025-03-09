@@ -1,6 +1,7 @@
 import struct
 import pickle
 import os
+import zlib
 from nltk.stem import PorterStemmer
 
 class BinarySearch:
@@ -24,13 +25,25 @@ class BinarySearch:
 
     def file_setup(self):
         """Creates the inverted_index.dat and search_dict.pkl files."""
-        with open(self.pickle_index, 'rb') as f:
-            data = pickle.load(f)
+        data = self.load_compressed_pickle(self.pickle_index)
         self.dict_to_dat(data)
         self.index_of_index = self.create_index_of_index()
         self.save_index_of_index()
 
-    
+
+    def load_compressed_pickle(self, filename):
+        """Load data from a compressed pickle file using zlib."""
+        if not os.path.exists(filename):
+            print(f"Pickle file '{filename}' does not exist. Returning empty dictionary.")
+            return {}
+        with open(filename, 'rb') as f:
+            compressed_data = f.read()
+        pickled_data = zlib.decompress(compressed_data)
+        data = pickle.loads(pickled_data)
+        print(f"Data loaded from {filename}")
+        return data
+
+
     def dict_to_dat(self, data):
         """Takes dictionary object and writes it to a .dat file using the struct library.
            
@@ -115,7 +128,7 @@ class BinarySearch:
         ps = PorterStemmer()
         return ps.stem(term.lower())
 
-    def single_search(self, term, result_count):
+    def single_search(self, term):
         """Search for a stemmed term and return the results.
            
            If not in index, return empty list. 
