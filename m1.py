@@ -453,7 +453,7 @@ def merge_by_smallest_lst(lsts):
 
 
 # -----------------------------------------------------------------------------
-# Main
+# Search Functionality
 # -----------------------------------------------------------------------------
 def search_loop(bs):
     """Interactive search method that prompts for queries and displays results."""
@@ -464,26 +464,31 @@ def search_loop(bs):
         search_query = input("Enter a search term (or 'quit' to exit): ")
         if search_query.lower() == 'quit':
             break
-        
+        search_tokens = tokenize(search_query)
         result_list = []
+
         start_time = time.time()
-        for item in search_query.lower().split(" "):
+        for item in search_tokens:
             result_list.append(bs.single_search(item))
-        final_results = merge_by_smallest_lst(result_list)
+        merged_results = merge_by_smallest_lst(result_list)
         end_time = time.time()
 
         # Calculate the execution time in milliseconds
         execution_time_ms = (end_time - start_time) * 1000
 
-        #if final_results:
-        #    print(f"Top 5 results for '{search_query}' (stemmed to '{stemmed_query}'):")
-        #    for i, result in enumerate(final_results, 1):
-        #        print(f"  {i}. {result[0]}")
-        #else:
-        #    print(f"No results found for '{search_query}' (stemmed to '{stemmed_query}').")
-        print(final_results)
+        final_results = merged_results[:10]
+        longest_url = max(len(doc2url[item[0]]) for item in final_results)
+        longest_freq = max(len(str(item[1])) for item in final_results)
+        width = longest_url + longest_freq + 15
+
+        for i, item in enumerate(final_results, 1):
+            url = doc2url[item[0]]
+            freq = item[1]
+            print(f"{i:2}. {url:<{width-longest_freq-7}}{freq:>{longest_freq}}")
+
         # Print the execution time
-        print(f"Search completed in {execution_time_ms:.2f} ms")
+        print(f"Search completed in {execution_time_ms:.2f} ms\n")
+
 
 
 # -----------------------------------------------------------------------------
