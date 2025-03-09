@@ -432,10 +432,12 @@ def merge_by_smallest_lst(lsts):
     """
 
     if len(lsts) == 1:
+        print(f"Found {len(lsts[0])} results.")
         return sorted(lsts[0], key=lambda x: x[1], reverse=True)[:20]
     
     if len(lsts) == 2:
         merged = merge_postings(lsts[0], lsts[1])
+        print(f"Found {len(merged)} results.")
         return sorted(merged, key=lambda x: x[1], reverse=True)[:20]
     
     lsts.sort(key=len)
@@ -444,6 +446,7 @@ def merge_by_smallest_lst(lsts):
 
     for i in range(1, len(lsts)):
         result = merge_postings(result, lsts[i])
+    print(f"Found {len(result)} results.")
 
     # Sort by frequency in descending order and return top 20
     return sorted(result, key=lambda x: x[1], reverse=True)[:20]
@@ -472,7 +475,6 @@ def search_loop(bs):
         # Calculate the execution time in milliseconds
         execution_time_ms = (end_time - start_time) * 1000
 
-        stemmed_query = bs.stem_term(search_query)
         #if final_results:
         #    print(f"Top 5 results for '{search_query}' (stemmed to '{stemmed_query}'):")
         #    for i, result in enumerate(final_results, 1):
