@@ -44,7 +44,7 @@ HTML_INDEX_PAGE = """
             flex: 1;
         }
         .container {
-            max-width: 700px;
+            max-width: 1000px;
             margin: 2rem auto;
             background: #fff;
             padding: 2rem;
@@ -112,10 +112,10 @@ HTML_RESULTS_PAGE = """
     <title>Search Results</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
             margin: 0;
             padding: 0;
-            background: #f0f0f0;
-            font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
@@ -133,14 +133,8 @@ HTML_RESULTS_PAGE = """
             color: #fff;
             text-decoration: none;
         }
-        header h1 a:hover {
-            text-decoration: underline;
-        }
-        .spacer {
-            flex: 1;
-        }
         .container {
-            max-width: 700px;
+            max-width: 1000px;
             margin: 2rem auto;
             background: #fff;
             padding: 2rem;
@@ -173,22 +167,29 @@ HTML_RESULTS_PAGE = """
         .search-form button:hover {
             background: #002244;
         }
-        .container ol li a {
-            display: inline-block;
-            max-width: 100%;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            word-break: break-all;
-            text-decoration: none;
-            color: #003366;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
         }
-        .container ol {
-            padding-left: 1.2rem;
+        th, td {
+            border: 1px solid #ccc;
+            padding: 0.6rem;
+        }
+        th {
+            background: #eee;
+            text-align: left;
+        }
+        td.url-col a {
+            color: #003366;
+            text-decoration: none;
+            word-wrap: break-word;
+        }
+        td.freq-col {
+            text-align: right;
+            width: 80px;
         }
         .nav-links {
-            display: flex;
-            justify-content: flex-start;
-            align-items: center;
             margin-top: 1rem;
         }
         .nav-links button {
@@ -210,6 +211,9 @@ HTML_RESULTS_PAGE = """
             padding: 1rem;
             text-align: center;
         }
+        .spacer {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -227,16 +231,35 @@ HTML_RESULTS_PAGE = """
             <button type="submit">Search</button>
         </form>
 
-        <p>Found {{count}} results. (Query took {{elapsed}} seconds.)</p>
+        <!-- Show how many results were found and how long the query took (in ms) -->
+        {% if count == 0 %}
+            <p>No results found. (Query completed in {{elapsed}} ms.)</p>
+        {% else %}
+            <p>Your search returned {{count}} results in total. Displaying the top 10 below. (Query completed in {{elapsed}} ms.)</p>
+        {% endif %}
+
 
         {% if results and results|length > 0 %}
-            <ol>
-            {% for item in results %}
-                <li><a href="{{item.url}}" target="_blank">{{item.url}}</a></li>
-            {% endfor %}
-            </ol>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>URL</th>
+                <th>Frequency</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in results %}
+                <tr>
+                    <td>{{ loop.index }}</td>  <!-- loop.index is 1-based -->
+                    <td class="url-col"><a href="{{ item.url }}" target="_blank">{{ item.url }}</a></td>
+                    <td class="freq-col">{{ item.freq }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+          </table>
         {% else %}
-            <p>No results found.</p>
+            <p></p>
         {% endif %}
 
         <!-- "Go Back" button -->
@@ -260,28 +283,33 @@ def index_page():
 
 @app.route("/search")
 def search():
-    """Route for handling search queries."""
     if not m1.INDEX_READY:
         return "<h1>Index is still building or loading. Please refresh.</h1>"
 
     query = request.args.get("q", "").strip()
+    
+    if not query:
+        return render_template_string(HTML_INDEX_PAGE)
+
     start_time = time.time()
-    results_set = m1.bin_search(query)
+    # This is now a list of (doc_id, freq) pairs
+    merged_results = m1.bin_search(query)
     end_time = time.time()
 
-    # Convert doc IDs to URLs, show top 20
-    top_results = list(results_set)[:20]
-    results_list = []
-    for doc_id_int in top_results:
-        the_url = m1.doc2url.get(doc_id_int, "???")
-        results_list.append({"doc_id": doc_id_int, "url": the_url})
+    # Convert time to milliseconds
+    execution_time_ms = (end_time - start_time) * 1000
+    elapsed_time = f"{execution_time_ms:.2f}"
+    top_results = merged_results[:10]
 
-    elapsed_time = f"{(end_time - start_time):.4f}"
+    results_list = []
+    for doc_id_int, freq in top_results:
+        the_url = m1.doc2url.get(doc_id_int, "???")
+        results_list.append({"doc_id": doc_id_int, "url": the_url, "freq": freq})
 
     return render_template_string(
         HTML_RESULTS_PAGE,
         query=query,
-        count=len(results_set),
+        count=len(merged_results),
         elapsed=elapsed_time,
         results=results_list
     )

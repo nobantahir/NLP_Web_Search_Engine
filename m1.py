@@ -430,27 +430,28 @@ def merge_by_smallest_lst(lsts):
     """Merge all posting lists in order from smallest to largest.
        after merging all, return list sorted by freq.
     """
+    # If lsts is empty, we have no results
+    if not lsts:
+        print("Found 0 results.")
+        return []
 
     if len(lsts) == 1:
         print(f"Found {len(lsts[0])} results.")
-        return sorted(lsts[0], key=lambda x: x[1], reverse=True)[:20]
-    
+        return sorted(lsts[0], key=lambda x: x[1], reverse=True)
+
     if len(lsts) == 2:
         merged = merge_postings(lsts[0], lsts[1])
         print(f"Found {len(merged)} results.")
-        return sorted(merged, key=lambda x: x[1], reverse=True)[:20]
+        return sorted(merged, key=lambda x: x[1], reverse=True)
     
+    # Otherwise, we have 3+ lists
     lsts.sort(key=len)
-
     result = lsts[0]
-
     for i in range(1, len(lsts)):
         result = merge_postings(result, lsts[i])
     print(f"Found {len(result)} results.")
 
-    # Sort by frequency in descending order and return top 20
-    return sorted(result, key=lambda x: x[1], reverse=True)[:20]
-
+    return sorted(result, key=lambda x: x[1], reverse=True)
 
 # -----------------------------------------------------------------------------
 # Search Functionality
@@ -464,6 +465,7 @@ def search_loop(bs):
         search_query = input("Enter a search term (or 'quit' to exit): ")
         if search_query.lower() == 'quit':
             break
+
         search_tokens = tokenize(search_query)
         result_list = []
 
@@ -476,7 +478,15 @@ def search_loop(bs):
         # Calculate the execution time in milliseconds
         execution_time_ms = (end_time - start_time) * 1000
 
-        final_results = merged_results[:20]
+        # If no results, just print nothing and continue
+        if not merged_results:
+            print(f"Search completed in {execution_time_ms:.2f} ms\n")
+            continue
+
+        # Otherwise, proceed with printing top results
+        final_results = merged_results[:10]
+
+        # Safely compute alignment only if final_results is not empty
         longest_url = max(len(doc2url[item[0]]) for item in final_results)
         longest_freq = max(len(str(item[1])) for item in final_results)
         width = longest_url + longest_freq + 15
@@ -484,8 +494,8 @@ def search_loop(bs):
         for i, item in enumerate(final_results, 1):
             url = doc2url[item[0]]
             freq = item[1]
-            print(f"{i:2}. {url:<{width-longest_freq-7}}{freq:>{longest_freq}}")
-
+            print(f"{i:2}. {url:<{width - longest_freq - 7}}{freq:>{longest_freq}}")
+        
         # Print the execution time
         print(f"Search completed in {execution_time_ms:.2f} ms\n")
 
@@ -493,27 +503,27 @@ def bin_search(search_query):
     """Boolean single search operation but using the bs object."""
     global bs
     search_tokens = tokenize(search_query)
+    
+    # If there are no valid tokens, return empty results right away
+    if not search_tokens:
+        return []
+    
     result_list = []
-
     for item in search_tokens:
-        result_list.append(bs.single_search(item))
+        postings = bs.single_search(item)
+        result_list.append(postings)
+    
+    # If for some reason all tokens yield no postings, return empty
+    if not result_list:
+        return []
     
     merged_results = merge_by_smallest_lst(result_list)
-    
-    final_results = merged_results[:20]
-
-    url_results = [item[0] for item in final_results]
-    
-    return url_results
+    return merged_results
 
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
-    #print("Initializing Index.")
-    #initialize_index()
+    print("Initializing Index.")
     bs = initialize_index()
-    #search_loop(bs)
-
-    #bs = BinarySearch("final_index.pkl")
-    #search_loop(bin)
+    search_loop(bs)
