@@ -476,7 +476,7 @@ def search_loop(bs):
         # Calculate the execution time in milliseconds
         execution_time_ms = (end_time - start_time) * 1000
 
-        final_results = merged_results[:10]
+        final_results = merged_results[:20]
         longest_url = max(len(doc2url[item[0]]) for item in final_results)
         longest_freq = max(len(str(item[1])) for item in final_results)
         width = longest_url + longest_freq + 15
@@ -500,7 +500,7 @@ def bin_search(search_query):
     
     merged_results = merge_by_smallest_lst(result_list)
     
-    final_results = merged_results[:10]
+    final_results = merged_results[:20]
 
     url_results = [item[0] for item in final_results]
     
