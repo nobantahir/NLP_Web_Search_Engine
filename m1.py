@@ -497,13 +497,14 @@ def search_loop(bs):
 
         # Safely compute alignment only if final_results is not empty
         longest_url = max(len(doc2url[item[0]]) for item in final_results)
-        longest_freq = max(len(str(item[1])) for item in final_results)
+        longest_freq = max(len(f"{item[1]*100:.0f}%") for item in final_results)
         width = longest_url + longest_freq + 15
 
         for i, item in enumerate(final_results, 1):
             url = doc2url[item[0]]
             freq = item[1]
-            print(f"{i:2}. {url:<{width - longest_freq - 7}}{freq:>{longest_freq}}")
+            formatted_freq = f"{freq*100:.0f}"
+            print(f"{i:2}. {url:<{width - longest_freq - 7}}{formatted_freq:>{longest_freq}}")
         
         # Print the execution time
         print(f"Search completed in {execution_time_ms:.2f} ms\n")

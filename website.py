@@ -287,7 +287,7 @@ HTML_RESULTS_PAGE = """
             text-decoration: none;
             word-wrap: break-word;
         }
-        td.freq-col {
+        td.score-col {
             text-align: right;
             width: 80px;
         }
@@ -345,7 +345,7 @@ HTML_RESULTS_PAGE = """
               <tr>
                 <th>#</th>
                 <th>URL</th>
-                <th>Frequency</th>
+                <th>Score</th>
               </tr>
             </thead>
             <tbody>
@@ -353,7 +353,7 @@ HTML_RESULTS_PAGE = """
                 <tr>
                     <td>{{ loop.index }}</td>
                     <td class="url-col"><a href="{{ item.url }}" target="_blank">{{ item.url }}</a></td>
-                    <td class="freq-col">{{ item.freq }}</td>
+                    <td class="freq-col">{{"%.0f"|format(item.score * 100) }}</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -409,9 +409,9 @@ def search():
     top_results = merged_results[:10]
 
     results_list = []
-    for doc_id_int, freq in top_results:
+    for doc_id_int, score in top_results:
         the_url = m1.doc2url.get(doc_id_int, "???")
-        results_list.append({"doc_id": doc_id_int, "url": the_url, "freq": freq})
+        results_list.append({"doc_id": doc_id_int, "url": the_url, "score": score})
 
     return render_template_string(
         HTML_RESULTS_PAGE,
