@@ -550,7 +550,7 @@ def bin_search(search_query):
     return merged_results
 
 # -----------------------------------------------------------------------------
-# Main
+# Main - Command Line Version
 # -----------------------------------------------------------------------------
 # if __name__ == "__main__":
 #     print("Initializing Index.")
