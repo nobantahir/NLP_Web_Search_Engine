@@ -44,7 +44,7 @@ HTML_INDEX_PAGE = """
             flex: 1;
         }
         .container {
-            max-width: 700px;
+            max-width: 1000px;
             margin: 2rem auto;
             background: #fff;
             padding: 2rem;
@@ -105,6 +105,106 @@ HTML_INDEX_PAGE = """
 </body>
 </html>
 """
+HTML_NOT_READY_PAGE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>A23 Search Engine - Building Index</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background: #f0f0f0;
+            font-family: Arial, sans-serif;
+            display: flex; flex-direction: column;
+            min-height: 100vh;
+        }
+        header {
+            background: #003366; color: #fff; padding: 1rem; text-align: center;
+        }
+        header h1 { margin: 0; }
+        header h1 a { color: #fff; text-decoration: none; }
+        header h1 a:hover { text-decoration: underline; }
+        .container {
+            max-width: 1000px;
+            margin: 2rem auto;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 6px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .progress-wrapper {
+            margin: 2rem auto;
+            width: 80%;
+            background: #ccc;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 30px;
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #003366;
+            color: #fff;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+        }
+        footer {
+            background: #003366;
+            color: #fff;
+            padding: 1rem;
+            text-align: center;
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><a href="/">A23 Search Engine</a></h1>
+    </header>
+    <div class="container">
+        <h2>Index is still building or loading</h2>
+        <p>Please wait a moment while we process documents.</p>
+        
+        <!-- Progress Bar -->
+        <div class="progress-wrapper">
+            <div id="progress-bar" class="progress-bar">0%</div>
+        </div>
+        <p>This may take a few minutes depending on the dataset size.</p>
+    </div>
+    <footer></footer>
+
+    <!-- Simple JS to poll progress endpoint -->
+    <script>
+    function updateProgress() {
+      fetch("/progress")
+        .then(response => response.json())
+        .then(data => {
+          const bar = document.getElementById("progress-bar");
+          const pct = data.progress;
+          bar.style.width = pct + "%";
+          bar.textContent = pct + "%";
+
+          // If progress < 100, keep polling every 2 seconds
+          if (pct < 100) {
+            setTimeout(updateProgress, 2000);
+          } else {
+            // Once it's 100%, maybe prompt the user to refresh
+            bar.textContent = "Indexing complete! Please refresh.";
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching progress:", err);
+        });
+    }
+
+    // Start polling on page load
+    updateProgress();
+    </script>
+</body>
+</html>
+"""
 HTML_RESULTS_PAGE = """
 <!DOCTYPE html>
 <html>
@@ -112,10 +212,10 @@ HTML_RESULTS_PAGE = """
     <title>Search Results</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
             margin: 0;
             padding: 0;
-            background: #f0f0f0;
-            font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
@@ -133,14 +233,8 @@ HTML_RESULTS_PAGE = """
             color: #fff;
             text-decoration: none;
         }
-        header h1 a:hover {
-            text-decoration: underline;
-        }
-        .spacer {
-            flex: 1;
-        }
         .container {
-            max-width: 700px;
+            max-width: 1000px;
             margin: 2rem auto;
             background: #fff;
             padding: 2rem;
@@ -173,22 +267,29 @@ HTML_RESULTS_PAGE = """
         .search-form button:hover {
             background: #002244;
         }
-        .container ol li a {
-            display: inline-block;
-            max-width: 100%;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            word-break: break-all;
-            text-decoration: none;
-            color: #003366;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
         }
-        .container ol {
-            padding-left: 1.2rem;
+        th, td {
+            border: 1px solid #ccc;
+            padding: 0.6rem;
+        }
+        th {
+            background: #eee;
+            text-align: left;
+        }
+        td.url-col a {
+            color: #003366;
+            text-decoration: none;
+            word-wrap: break-word;
+        }
+        td.freq-col {
+            text-align: right;
+            width: 80px;
         }
         .nav-links {
-            display: flex;
-            justify-content: flex-start;
-            align-items: center;
             margin-top: 1rem;
         }
         .nav-links button {
@@ -210,6 +311,9 @@ HTML_RESULTS_PAGE = """
             padding: 1rem;
             text-align: center;
         }
+        .spacer {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -227,16 +331,31 @@ HTML_RESULTS_PAGE = """
             <button type="submit">Search</button>
         </form>
 
-        <p>Found {{count}} results. (Query took {{elapsed}} seconds.)</p>
+        {% if count == 0 %}
+            <p>No results found. (Query completed in {{elapsed}} ms.)</p>
+        {% else %}
+            <p>Your search returned {{count}} results in total. Displaying the top 10 below. (Query completed in {{elapsed}} ms.)</p>
+        {% endif %}
 
         {% if results and results|length > 0 %}
-            <ol>
-            {% for item in results %}
-                <li><a href="{{item.url}}" target="_blank">{{item.url}}</a></li>
-            {% endfor %}
-            </ol>
-        {% else %}
-            <p>No results found.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>URL</th>
+                <th>Frequency</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in results %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td class="url-col"><a href="{{ item.url }}" target="_blank">{{ item.url }}</a></td>
+                    <td class="freq-col">{{ item.freq }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         {% endif %}
 
         <!-- "Go Back" button -->
@@ -253,46 +372,68 @@ HTML_RESULTS_PAGE = """
 
 @app.route("/")
 def index_page():
-    """Route for the home page. Shows a simple search form."""
+    """Route for the home page."""
     if not m1.INDEX_READY:
-        return "<h1>Index is still building or loading. Please refresh.</h1>"
+        return render_template_string(HTML_NOT_READY_PAGE)
     return render_template_string(HTML_INDEX_PAGE)
+
+@app.route("/progress")
+def progress():
+    """
+    Returns approximate indexing progress as a percentage.
+    E.g. {"progress": 42}
+    """
+    if m1.total_files == 0:
+        # Avoid division by zero if no files
+        return {"progress": 0}
+
+    # Calculate approximate percentage
+    pct = int((m1.current_file / m1.total_files) * 100)
+    return {"progress": pct}
 
 @app.route("/search")
 def search():
     """Route for handling search queries."""
     if not m1.INDEX_READY:
-        return "<h1>Index is still building or loading. Please refresh.</h1>"
+        return render_template_string(HTML_NOT_READY_PAGE)
 
     query = request.args.get("q", "").strip()
+    if not query:
+        return render_template_string(HTML_INDEX_PAGE)
+
     start_time = time.time()
-    results_set = m1.boolean_search(query, m1.final_index)
+    merged_results = m1.bin_search(query)
     end_time = time.time()
 
-    # Convert doc IDs to URLs, show top 20
-    top_results = list(results_set)[:20]
-    results_list = []
-    for doc_id_int in top_results:
-        the_url = m1.doc2url.get(doc_id_int, "???")
-        results_list.append({"doc_id": doc_id_int, "url": the_url})
+    execution_time_ms = (end_time - start_time) * 1000
+    elapsed_time = f"{execution_time_ms:.2f}"
+    top_results = merged_results[:10]
 
-    elapsed_time = f"{(end_time - start_time):.4f}"
+    results_list = []
+    for doc_id_int, freq in top_results:
+        the_url = m1.doc2url.get(doc_id_int, "???")
+        results_list.append({"doc_id": doc_id_int, "url": the_url, "freq": freq})
 
     return render_template_string(
         HTML_RESULTS_PAGE,
         query=query,
-        count=len(results_set),
+        count=len(merged_results),
         elapsed=elapsed_time,
         results=results_list
     )
-@app.route("/debug-list")
-def debug_list():
-    import os
-    files = os.listdir(".")
-    return {"files_in_cwd": files}
+
+def start_index_thread():
+    """Start index building in a background thread."""
+    import threading
+    def run_index():
+        print("Index building in background thread...")
+        m1.initialize_index()
+        print("Index is ready.")
+
+    thread = threading.Thread(target=run_index)
+    thread.start()
+
 if __name__ == "__main__":
-    # Initialize the index before running the Flask server
-    print("About to initialize index...")
-    m1.initialize_index()
     print("Flask server running at http://127.0.0.1:5000/")
+    start_index_thread()  # Begin building the index in the background
     app.run(debug=True, port=5000)

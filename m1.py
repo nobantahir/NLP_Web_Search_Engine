@@ -7,13 +7,14 @@ import nltk
 import os
 import pickle
 import re
-import struct
 import time
 import warnings
 import zlib
+from binary_search import BinarySearch
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning, XMLParsedAsHTMLWarning
 from collections import Counter
 from nltk.stem import PorterStemmer
+from tools import timer, print_returns, count_calls
 from math import log
 
 # Download necessary NLTK data
@@ -21,6 +22,8 @@ nltk.download('punkt', quiet=True)
 
 # Set up the Porter Stemmer
 ps = PorterStemmer()
+# Create global for BinarySearch
+bs = None
 
 # Ignore warnings for content resembling URLs or XML parsed as HTML
 warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
@@ -31,6 +34,8 @@ warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 # -----------------------------------------------------------------------------
 doc_count = 0        # Number of documents processed
 token_count = 0      # Number of token postings inserted
+current_file = 0     # Tracks which file is currently being processed
+total_files = 0      # Stores the total number of files to process
 doc2id = {}          # Maps a document URL -> integer docID
 doc2url = {}         # Maps an integer docID -> the original document URL
 next_doc_id = 0      # Keeps track of the next available integer docID
@@ -140,6 +145,7 @@ def parse_html(content):
     soup = BeautifulSoup(content, 'lxml')
     return soup.get_text(separator=" ")
 
+#@count_calls
 def tokenize(text):
     """
     Tokenize text using a regex approach, ignoring tokens < 3 chars
@@ -219,12 +225,15 @@ def build_index():
     Build the inverted index from all JSON files, dumping partial indexes
     exactly 3 times (1/3, 2/3, and end). Also does dynamic partial dumps
     if the index grows too large (MAX_POSTINGS).
+
+    This function also tracks progress by updating 'current_file'
+    (which file we're on) and 'total_files' (total number of files).
     """
-    global doc_count, token_count
+    global doc_count, token_count, current_file, total_files
 
     # Retrieve all JSON file paths from the "developer/DEV" folder
     paths = retrieve_paths()
-    total_files = len(paths)
+    total_files = len(paths)  # Set total number of files for progress tracking
     
     # If no files are found, print a message and return
     if total_files == 0:
@@ -236,13 +245,16 @@ def build_index():
     dump1 = total_files // 3
     dump2 = (total_files * 2) // 3
 
-     # This dictionary will hold our in-memory index until we dump it
+    # This dictionary will hold our in-memory index until we dump it
     index = {}
-     # Keep track of how many partial indexes we've saved so far
+    # Keep track of how many partial indexes we've saved so far
     partial_count = 0
 
-     # Loop over each file path, using enumerate to track the index (i)
+    # Loop over each file path, using enumerate to track the index (i)
     for i, doc_path in enumerate(paths):
+        # Update the global 'current_file' so we know how many files have been processed
+        current_file = i + 1
+
         try:
             # Attempt to open and load the JSON file
             with open(doc_path, 'r', encoding='utf-8') as f:
@@ -308,7 +320,7 @@ def build_index():
             index.clear()
             partial_count += 1
 
-     # Return how many partial indexes were saved
+    # Return how many partial indexes were saved
     return partial_count
 
 # -----------------------------------------------------------------------------
@@ -339,7 +351,7 @@ def merge_partial_indexes():
 # -----------------------------------------------------------------------------
 # Boolean AND Search
 # -----------------------------------------------------------------------------
-def boolean_search(query, index):
+def boolean_search(query, bs):
     """
     Perform a Boolean AND search on the final index for the given query.
     If any token doesn't exist, it returns an empty set. Otherwise, it
@@ -355,7 +367,7 @@ def boolean_search(query, index):
     result_set = None
     # For each token in the query, retrieve the associated postings from the index
     for token in query_tokens:
-        postings = index.get(token, [])
+        postings = bs.single_search(token)
         
         # If this token isn't found in the index (no postings), we can return an empty set
         if not postings:
@@ -391,6 +403,7 @@ def initialize_index():
     global final_index, doc2url, INDEX_READY
 
     if os.path.exists("final_index.pkl"):
+        print("Loading Index.")
         # Load existing index
         final_index_loaded = load_pickle("final_index.pkl")
         final_index.update(final_index_loaded)
@@ -400,6 +413,7 @@ def initialize_index():
             doc2url.update(doc2url_map)
         INDEX_READY = True
     else:
+        print("Building Index.")
         # Build index from scratch
         start_time = time.time()
         partial_count = build_index()
@@ -415,3 +429,130 @@ def initialize_index():
         # Save doc2url
         save_pickle(doc2url, "doc2url.pkl")
         INDEX_READY = True
+    
+    global bs
+    bs = BinarySearch("final_index.pkl")
+    return bs
+
+# -----------------------------------------------------------------------------
+# Posting Combinations
+# -----------------------------------------------------------------------------
+def merge_postings(lst1, lst2):
+    """Takes two lists of postings, intersects them and adds freq for shared doc_id."""
+    merged_list = []
+
+    i, j = 0, 0
+    while i < len(lst1) and j < len(lst2):
+        if lst1[i][0] < lst2[j][0]:
+            i += 1
+        elif lst1[i][0] > lst2[j][0]:
+            j += 1
+        else:
+            merged_list.append((lst1[i][0], lst1[i][1] + lst2[j][1])) # When doc_id matches, add freq and put in list of common
+            i += 1
+            j += 1
+
+    return merged_list
+
+
+def merge_by_smallest_lst(lsts):
+    """Merge all posting lists in order from smallest to largest.
+       after merging all, return list sorted by freq.
+    """
+    # If lsts is empty, we have no results
+    if not lsts:
+        print("Found 0 results.")
+        return []
+
+    if len(lsts) == 1:
+        print(f"Found {len(lsts[0])} results.")
+        return sorted(lsts[0], key=lambda x: x[1], reverse=True)
+
+    if len(lsts) == 2:
+        merged = merge_postings(lsts[0], lsts[1])
+        print(f"Found {len(merged)} results.")
+        return sorted(merged, key=lambda x: x[1], reverse=True)
+    
+    # Otherwise, we have 3+ lists
+    lsts.sort(key=len)
+    result = lsts[0]
+    for i in range(1, len(lsts)):
+        result = merge_postings(result, lsts[i])
+    print(f"Found {len(result)} results.")
+
+    return sorted(result, key=lambda x: x[1], reverse=True)
+
+# -----------------------------------------------------------------------------
+# Search Functionality
+# -----------------------------------------------------------------------------
+def search_loop(bs):
+    """Interactive search method that prompts for queries and displays results."""
+    print("Enter your search queries or type 'quit' to exit.")
+    print()
+
+    while True:
+        search_query = input("Enter a search term (or 'quit' to exit): ")
+        if search_query.lower() == 'quit':
+            break
+
+        search_tokens = tokenize(search_query)
+        result_list = []
+
+        start_time = time.time()
+        for item in search_tokens:
+            result_list.append(bs.single_search(item))
+        merged_results = merge_by_smallest_lst(result_list)
+        end_time = time.time()
+
+        # Calculate the execution time in milliseconds
+        execution_time_ms = (end_time - start_time) * 1000
+
+        # If no results, just print nothing and continue
+        if not merged_results:
+            print(f"Search completed in {execution_time_ms:.2f} ms\n")
+            continue
+
+        # Otherwise, proceed with printing top results
+        final_results = merged_results[:10]
+
+        # Safely compute alignment only if final_results is not empty
+        longest_url = max(len(doc2url[item[0]]) for item in final_results)
+        longest_freq = max(len(str(item[1])) for item in final_results)
+        width = longest_url + longest_freq + 15
+
+        for i, item in enumerate(final_results, 1):
+            url = doc2url[item[0]]
+            freq = item[1]
+            print(f"{i:2}. {url:<{width - longest_freq - 7}}{freq:>{longest_freq}}")
+        
+        # Print the execution time
+        print(f"Search completed in {execution_time_ms:.2f} ms\n")
+
+def bin_search(search_query):
+    """Boolean single search operation but using the bs object."""
+    global bs
+    search_tokens = tokenize(search_query)
+    
+    # If there are no valid tokens, return empty results right away
+    if not search_tokens:
+        return []
+    
+    result_list = []
+    for item in search_tokens:
+        postings = bs.single_search(item)
+        result_list.append(postings)
+    
+    # If for some reason all tokens yield no postings, return empty
+    if not result_list:
+        return []
+    
+    merged_results = merge_by_smallest_lst(result_list)
+    return merged_results
+
+# -----------------------------------------------------------------------------
+# Main
+# -----------------------------------------------------------------------------
+if __name__ == "__main__":
+    print("Initializing Index.")
+    bs = initialize_index()
+    search_loop(bs)
