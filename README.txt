@@ -72,6 +72,7 @@ Files
 3. Performing a Search in the Terminal (Optional)
 -------------------------------------------------
 1. Run m1.py in interactive mode:
+   - Uncomment the main in m1.py
    - Open your terminal and type: python m1.py
    - It will automatically check or build the index if needed, then prompt:
      Enter a search term (or 'quit' to exit):
