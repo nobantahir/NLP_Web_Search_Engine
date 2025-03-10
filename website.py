@@ -111,6 +111,7 @@ HTML_NOT_READY_PAGE = """
 <html>
 <head>
     <title>A23 Search Engine - Building Index</title>
+    <meta http-equiv="refresh" content="3">
     <style>
         body {
             margin: 0; padding: 0;
