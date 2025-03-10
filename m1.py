@@ -519,8 +519,15 @@ def bin_search(search_query):
     
     result_list = []
     for item in search_tokens:
-        postings = bs.single_search(item)
-        result_list.append(postings)
+        temp = bs.single_search(item)
+        tf_idf = []
+        for post in temp:
+            lst_post = list(post)
+            if calc_idf(item):
+                lst_post[1] *= calc_idf(item)
+            tup_post = tuple(lst_post)
+            tf_idf.append(tup_post)
+        result_list.append(tf_idf)
     
     # If for some reason all tokens yield no postings, return empty
     if not result_list:
