@@ -480,7 +480,7 @@ def search_loop(bs):
                     lst_post[1] *= calc_idf(item)
                 tup_post = tuple(lst_post)
                 tf_idf.append(tup_post)
-            result_list.append(bs.single_search(item))
+            result_list.append(tf_idf)
         merged_results = merge_by_smallest_lst(result_list)
         end_time = time.time()
 
