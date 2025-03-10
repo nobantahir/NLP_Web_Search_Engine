@@ -9,6 +9,7 @@ from flask import Flask, request, render_template_string
 # Flask Application
 # -----------------------------------------------------------------------------
 app = Flask(__name__)
+
 HTML_INDEX_PAGE = """
 <!DOCTYPE html>
 <html>
@@ -190,8 +191,9 @@ HTML_NOT_READY_PAGE = """
           if (pct < 100) {
             setTimeout(updateProgress, 2000);
           } else {
-            // Once it's 100%, maybe prompt the user to refresh
-            bar.textContent = "Indexing complete! Please refresh.";
+            // Once it's 100%, auto-refresh the page after 30 seconds
+            bar.textContent = "Indexing complete! Refreshing in 30 seconds...";
+            setTimeout(() => window.location.reload(), 30000);
           }
         })
         .catch(err => {
@@ -436,4 +438,4 @@ def start_index_thread():
 if __name__ == "__main__":
     print("Flask server running at http://127.0.0.1:5000/")
     start_index_thread()  # Begin building the index in the background
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, use_reloader=False)

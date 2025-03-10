@@ -531,7 +531,7 @@ def bin_search(search_query):
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
-if __name__ == "__main__":
-    print("Initializing Index.")
-    bs = initialize_index()
-    search_loop(bs)
+# if __name__ == "__main__":
+#     print("Initializing Index.")
+#     bs = initialize_index()
+#     search_loop(bs)
