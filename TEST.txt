@@ -1,0 +1,31 @@
+Queries:
+
+1. master of software
+2. Iftekhar Ahmed
+3. machine learning
+4. ACM
+5. master of software engineering
+6. informatics
+7. car
+8. master
+9. software
+10. software engineer
+11. hadar
+12. cristina lopez
+13. ics
+14. artificial intelligence
+15. ics student affairs
+16. doctorate
+17. user experience
+18. web crawler
+19. playstation
+20. in the arms of an angel
+
+Comments:
+
+Overall we had a good indexing system and used binary structures which result in quick search times.
+We found consistent result counts and query times.
+
+ACM had a bug where it said it had only one result but it is because we were not using tokenize in the search loop.
+playstation has only four results.
+in the arms of an angel has really high frequency count and 33 results.
