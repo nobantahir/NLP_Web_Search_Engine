@@ -191,9 +191,9 @@ HTML_NOT_READY_PAGE = """
           if (pct < 100) {
             setTimeout(updateProgress, 2000);
           } else {
-            // Once it's 100%, auto-refresh the page after 30 seconds
-            bar.textContent = "Indexing complete! Refreshing in 30 seconds...";
-            setTimeout(() => window.location.reload(), 30000);
+            // Once it's 100%, auto-refresh the page after 15 seconds
+            bar.textContent = "Indexing complete! Refreshing...";
+            setTimeout(() => window.location.reload(), 15000);
           }
         })
         .catch(err => {
@@ -381,10 +381,7 @@ def index_page():
 
 @app.route("/progress")
 def progress():
-    """
-    Returns approximate indexing progress as a percentage.
-    E.g. {"progress": 42}
-    """
+    """Returns approximate indexing progress as a percentage."""
     if m1.total_files == 0:
         # Avoid division by zero if no files
         return {"progress": 0}
