@@ -137,10 +137,11 @@ class BinarySearch:
            If important -> add ten to frequency.
 
            Return tuple pairs with only doc_id and adjusted score.
+           The adjusted score factors in TF for the document.
         """
         stemmed_term = self.stem_term(term)
         if stemmed_term in self.index_of_index:
             result = self.get_item(stemmed_term)
-            adjusted_result = [(doc_id, freq + (10 if important else 0)) for doc_id, freq, important in result]
+            adjusted_result = [(doc_id, (freq + (10 if important else 0)) / len_tokens) for doc_id, freq, important, len_tokens in result]
             return adjusted_result
         return []

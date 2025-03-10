@@ -46,6 +46,8 @@ MAX_POSTINGS = 200_000  # If postings exceed this, we do a partial dump
 INDEX_READY = False      # Will be set to True once the index is loaded/built
 final_index = {}         # Our final in-memory index
 
+idf = {}                 # Dict for token:num of docs
+
 # -----------------------------------------------------------------------------
 # Utility
 # -----------------------------------------------------------------------------
@@ -60,11 +62,11 @@ def total_tokens():
 # -----------------------------------------------------------------------------
 # Insert posting
 # -----------------------------------------------------------------------------
-def insert_posting(token_dict, token, doc_id_int, token_freq, is_important=False):
+def insert_posting(token_dict, token, doc_id_int, token_freq, is_important=False, len_tokens=0):
     """Insert a posting tuple (doc_id, token freq, is_important) into a token dictionary."""
     if token not in token_dict:
         token_dict[token] = []
-    token_dict[token].append((doc_id_int, token_freq, is_important))
+    token_dict[token].append((doc_id_int, token_freq, is_important, len_tokens))
     return token_dict
 
 # -----------------------------------------------------------------------------
@@ -74,10 +76,16 @@ def calc_tf(token_freq, token_total, token):
     """Calculate the term frequency (tf) of a document and a given token."""
     return (token_freq / token_count)
 
-def calc_idf(doc_freq):
+def calc_idf(token):
     """Calculate the inverse document frequency (idf) of a document and given token."""
-    global doc_count
-    return log((doc_count/doc_freq), 10)
+    global idf
+    temp_doc_num = idf.get(token, None)
+    max_doc = 55243
+
+    if temp_doc_num:
+        return log((max_doc/temp_doc_num), 10)
+    else:
+        return None
 
 def calc_tf_idf(token, token_freq, token_total, doc_freq):
     """Calculate the tf-idf score of a document and a given token."""
@@ -298,7 +306,7 @@ def build_index():
         # Insert each token into our index
         for token, freq in freq_dict.items():
             is_important = (token in important_tokens)
-            insert_posting(index, token, doc_id_int, freq, is_important)
+            insert_posting(index, token, doc_id_int, freq, is_important, len(tokens))
             # Increment the global token postings counter
             token_count += 1
 
@@ -388,6 +396,12 @@ def initialize_index():
         save_pickle(doc2url, "doc2url.pkl")
         INDEX_READY = True
     
+    temp_index = load_pickle("final_index.pkl")
+    
+    global idf
+    for key, value in temp_index.items():
+        idf[key] = len(value)
+
     global bs
     bs = BinarySearch("final_index.pkl")
     return bs
@@ -458,6 +472,14 @@ def search_loop(bs):
 
         start_time = time.time()
         for item in search_tokens:
+            temp = bs.single_search(item)
+            tf_idf = []
+            for post in temp:
+                lst_post = list(post)
+                if calc_idf(item):
+                    lst_post[1] *= calc_idf(item)
+                tup_post = tuple(lst_post)
+                tf_idf.append(tup_post)
             result_list.append(bs.single_search(item))
         merged_results = merge_by_smallest_lst(result_list)
         end_time = time.time()
@@ -510,7 +532,7 @@ def bin_search(search_query):
 # -----------------------------------------------------------------------------
 # Main - Command Line Version
 # -----------------------------------------------------------------------------
-#if __name__ == "__main__":
-    #print("Initializing Index.")
-    #bs = initialize_index()
-    #search_loop(bs)
+if __name__ == "__main__":
+    print("Initializing Index.")
+    bs = initialize_index()
+    search_loop(bs)
