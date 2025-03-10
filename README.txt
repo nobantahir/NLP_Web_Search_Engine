@@ -26,6 +26,8 @@ Files
 6. TEST.txt
    - Contains the test queries used to evaluate the engine, plus notes on any improvements made.
 
+7. *CRITICAL* Make sure developer folder is in the same directory as the codebase.
+
 ---------------------
 1. Building the Index
 ---------------------

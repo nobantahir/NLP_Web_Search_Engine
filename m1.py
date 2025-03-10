@@ -156,7 +156,7 @@ def tokenize(text):
 
     for tok in raw_tokens:
         # Skip tokens shorter than 3 chars
-        if len(tok) < 3:
+        if len(tok) < 2:
             continue
         # Skip anything that looks like a link
         if "http" in tok or "www" in tok:
@@ -348,48 +348,6 @@ def merge_partial_indexes():
     print(f"Final index saved as 'final_index.pkl' with {len(final_index)} unique tokens.")
     return final_index
 
-# -----------------------------------------------------------------------------
-# Boolean AND Search
-# -----------------------------------------------------------------------------
-def boolean_search(query, bs):
-    """
-    Perform a Boolean AND search on the final index for the given query.
-    If any token doesn't exist, it returns an empty set. Otherwise, it
-    intersects docID sets for all tokens in the query.
-    """
-    # Convert the query string into a list of tokens
-    query_tokens = tokenize(query)
-    
-    # If the query has no tokens, return an empty set immediately
-    if not query_tokens:
-        return set()
-
-    result_set = None
-    # For each token in the query, retrieve the associated postings from the index
-    for token in query_tokens:
-        postings = bs.single_search(token)
-        
-        # If this token isn't found in the index (no postings), we can return an empty set
-        if not postings:
-            return set()
-        
-        # Extract just the doc IDs from the postings
-        doc_ids = {doc_id for doc_id, freq, imp in postings}
-        
-        # Initialize the result set if it's our first token
-        if result_set is None:
-            result_set = doc_ids
-        else:
-            # Intersect with existing results to perform the AND operation
-            result_set = result_set.intersection(doc_ids)
-        
-        # If at any point the intersection is empty, we can stop early
-        if not result_set:
-            return set()
-
-    # Return the final intersection of doc IDs (or empty set if none)
-    return result_set or set()
-
 
 # -----------------------------------------------------------------------------
 # Index Initialization
@@ -552,7 +510,7 @@ def bin_search(search_query):
 # -----------------------------------------------------------------------------
 # Main - Command Line Version
 # -----------------------------------------------------------------------------
-# if __name__ == "__main__":
-#     print("Initializing Index.")
-#     bs = initialize_index()
-#     search_loop(bs)
+#if __name__ == "__main__":
+    #print("Initializing Index.")
+    #bs = initialize_index()
+    #search_loop(bs)
